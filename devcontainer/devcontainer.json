@@ -1,0 +1,32 @@
+{
+    "name": "Disboard-NGNL-Suniaster",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter",
+                "James-Yu.latex-workshop",
+                "redhat.vscode-yaml",
+                "yzhang.markdown-all-in-one"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python3",
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    },
+    "postCreateCommand": "python3 -m pip install --upgrade pip && pip install -r requirements.txt && python3 ex_machina_verify.py",
+    "remoteEnv": {
+        "PROJECTS_ROOT": "${containerWorkspaceFolder}",
+        "GROQ_API_KEY": "${localEnv:GROQ_API_KEY}",
+        "GOOGLE_AI_STUDIO_API_KEY": "${localEnv:GOOGLE_AI_STUDIO_API_KEY}",
+        "ANTHROPIC_API_KEY": "${localEnv:ANTHROPIC_API_KEY}",
+        "OPENAI_API_KEY": "${localEnv:OPENAI_API_KEY}"
+    },
+    "forwardPorts": [],
+    "remoteUser": "vscode"
+}
