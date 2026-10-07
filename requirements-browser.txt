@@ -1,0 +1,2 @@
+# Optional dependency for the cross-browser UI smoke test.
+playwright

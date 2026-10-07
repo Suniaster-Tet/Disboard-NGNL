@@ -1,0 +1,45 @@
+### Orquestación multiagente
+langgraph
+langchain-core
+langgraph-checkpoint-sqlite
+fastapi
+uvicorn[standard]
+python-multipart
+pypdf
+
+### Clientes de modelos de IA
+groq
+google-genai
+anthropic
+openai
+
+### Consultas bibliográficas y red
+requests
+python-dotenv
+
+### Datos, hojas de cálculo y optimización tabular
+pandas
+numpy
+numpy-financial
+openpyxl
+dask[complete]
+polars
+
+### Cómputo simbólico, científico y simulación
+sympy
+scipy
+simpy
+
+### IA avanzada y modelos locales
+torch
+transformers
+accelerate
+
+### Generación y manipulación de documentos y PDFs
+python-docx
+python-pptx
+reportlab
+Jinja2
+
+### Consola / interfaz HITL
+rich

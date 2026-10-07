@@ -1,0 +1,60 @@
+{
+    "project": "Disboard-NGNL",
+    "version": "2.0",
+    "active_profile": "disboard_ngnl",
+    "palette": {
+        "primary": "#1E0030",
+        "secondary": "#E60067",
+        "accent": "#FFD700",
+        "background": "#FFFFFF",
+        "text": "#1A1A1A",
+        "muted": "#6B7280"
+    },
+    "typography": {
+        "heading_font": "Latin Modern Roman",
+        "body_font": "Latin Modern Roman",
+        "code_font": "Latin Modern Mono",
+        "slide_font": "Fira Sans"
+    },
+    "document_templates": {
+        "preprint": "docs/preprint",
+        "manual": "docs/manual",
+        "results": "docs/results",
+        "report": "docs/report",
+        "summary": "docs/summary",
+        "emails": "docs/emails",
+        "presentation": "docs/presentation"
+    },
+    "logo": {
+        "path": "assets/logo.png",
+        "min_width_px": 120
+    },
+    "footer_text": "Disboard-NGNL · Soberano: Tet · Orquestación HITL: Stephanie Dola · Codespace: Suniaster",
+    "watermark_draft": true,
+    "profiles": {
+        "disboard_ngnl": {
+            "footer_text": "Disboard-NGNL · Soberano: Tet · Orquestación HITL: Stephanie Dola · Codespace: Suniaster",
+            "palette": {
+                "primary": "#1E0030",
+                "secondary": "#E60067",
+                "accent": "#FFD700"
+            },
+            "typography": {
+                "heading_font": "Latin Modern Roman",
+                "body_font": "Latin Modern Roman"
+            }
+        },
+        "secihti_oficial": {
+            "footer_text": "SECIHTI · Gobierno de México 2024-2030 · Conectando Ciencia y Humanismo",
+            "palette": {
+                "primary": "#9F2241",
+                "secondary": "#235B4E",
+                "accent": "#B6985E"
+            },
+            "typography": {
+                "heading_font": "Patria",
+                "body_font": "Noto Sans"
+            }
+        }
+    }
+}

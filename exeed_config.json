@@ -1,0 +1,70 @@
+{
+    "project": "Disboard-NGNL",
+    "version": "2.0",
+    "validation_gate": {
+        "status": "APPROVED",
+        "last_validated_by": "Tet 🖋️",
+        "rules_of_play": "Toda actualización de prioridades de APIs de IA o asignación de modelos Pro requiere el veredicto final de Tet."
+    },
+    "exeed_registry": {
+        "ex_machina": {
+            "provider": "groq",
+            "models": [
+                {"modelo": "openai/gpt-oss-120b", "rol": "PRO - Shiro (Cómputo analítico)"},
+                {"modelo": "openai/gpt-oss-20b", "rol": "ESTANDAR - Izuna Hatsuse"},
+                {"modelo": "qwen/qwen3.8-27b", "rol": "AMPLIO - Kurami Zell (Auditorías)"}
+            ]
+        },
+        "flugel": {
+            "provider": "gemini",
+            "models": [
+                {"modelo": "gemini-2.5-pro", "rol": "PRO - Jibril (Redacción profunda)"},
+                {"modelo": "gemini-2.5-flash", "rol": "ESTANDAR - Fiel Nirvalen / Stephanie"},
+                {"modelo": "gemini-flash-lite-latest", "rol": "EXPERIMENTAL - Sora (Estrategia)"}
+            ]
+        },
+        "elfen": {
+            "provider": "anthropic",
+            "models": [
+                {"modelo": "claude-3-5-sonnet-20241022", "rol": "PRO - Shiro (Código avanzado)"},
+                {"modelo": "claude-3-haiku-20240307", "rol": "ESTANDAR - Clammy Zell"}
+            ]
+        },
+        "dhampir": {
+            "provider": "openai",
+            "models": [
+                {"modelo": "gpt-4o", "rol": "PRO - Stephanie (Traducción persuasiva)"},
+                {"modelo": "gpt-4o-mini", "rol": "ESTANDAR - Fiel (Administración)"}
+            ]
+        }
+    },
+    "agent_models": {
+        "sora": {"provider": "gemini", "model": "gemini-flash-lite-latest"},
+        "shiro": {"provider": "groq", "model": "openai/gpt-oss-120b"},
+        "izuna hatsuse": {"provider": "groq", "model": "openai/gpt-oss-20b"},
+        "jibril": {"provider": "gemini", "model": "gemini-2.5-pro"},
+        "kurami zell": {"provider": "groq", "model": "qwen/qwen3.8-27b"},
+        "clammy zell": {"provider": "anthropic", "model": "claude-3-haiku-20240307"},
+        "stephanie dola": {"provider": "openai", "model": "gpt-4o"},
+        "fiel nirvalen": {"provider": "gemini", "model": "gemini-2.5-flash"}
+    },
+    "exeed_tier_limits": {
+        "free_tier": {
+            "requests_per_hour": 30,
+            "tpm_limit": 40000,
+            "warning_threshold_pct": 0.8
+        },
+        "pro_tier": {
+            "requests_per_hour": 10,
+            "tpm_limit": 20000,
+            "warning_threshold_pct": 0.9
+        }
+    },
+    "usage_limits": {
+        "groq": {"daily_tokens": null, "requests_per_hour": null},
+        "gemini": {"daily_tokens": null, "requests_per_hour": null},
+        "anthropic": {"daily_tokens": null, "requests_per_hour": null},
+        "openai": {"daily_tokens": null, "requests_per_hour": null},
+        "ollama": {"daily_tokens": null, "requests_per_hour": null}
+    }
+}
