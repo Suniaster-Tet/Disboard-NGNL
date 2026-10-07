@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111719">
+  <title>Disboard local</title>
+  <link rel="stylesheet" href="/assets/style.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Disboard local, inicio"><span class="mark">D</span><span>DISBOARD <small>LOCAL</small></span></a>
+      <div class="connection"><span class="pulse"></span><span id="connection-state">Comprobando entorno</span></div>
+    </header>
+
+    <section id="login-view" class="login-view" aria-labelledby="login-title">
+      <div class="login-copy">
+        <p class="eyebrow">ENTORNO PRIVADO · INFERENCIA LOCAL</p>
+        <h1 id="login-title">Tu mesa de trabajo,<br>en tu propia red.</h1>
+        <p class="lede">Los accesos se administran desde el laptop anfitrión. Esta interfaz no ofrece registro público.</p>
+      </div>
+      <form id="login-form" class="login-form">
+        <label for="username">Usuario registrado</label>
+        <input id="username" name="username" autocomplete="username" required maxlength="80">
+        <label for="access-key">Llave de acceso</label>
+        <input id="access-key" name="access-key" type="password" autocomplete="current-password" required maxlength="256">
+        <button class="primary" type="submit">Entrar al tablero <span aria-hidden="true">→</span></button>
+        <p id="login-message" class="message" role="status"></p>
+        <p class="fineprint">La llave no se guarda en este navegador.</p>
+      </form>
+    </section>
+
+    <section id="workspace-view" class="workspace" hidden>
+      <aside class="rail">
+        <div class="rail-heading"><span class="eyebrow">SESIÓN LOCAL</span><strong id="user-label"></strong></div>
+        <label for="project-select">Proyecto</label>
+        <select id="project-select"><option value="">Sin proyecto</option></select>
+        <div class="privacy-note"><span class="lock-icon" aria-hidden="true">◆</span><div><strong>Solo local</strong><p>Las solicitudes no tienen fallback a APIs externas.</p></div></div>
+        <button id="logout-button" class="quiet-button" type="button">Cerrar sesión</button>
+      </aside>
+
+      <section class="work-area" aria-labelledby="work-title">
+        <div class="work-heading">
+          <div><p class="eyebrow">NUEVA EJECUCIÓN</p><h1 id="work-title">Coordinar agentes</h1></div>
+          <span id="model-state" class="model-state">Modelo local sin configurar</span>
+        </div>
+        <nav class="console-tabs" role="tablist" aria-label="Paneles de trabajo">
+          <button class="console-tab active" id="tab-chat" type="button" role="tab" aria-selected="true" aria-controls="panel-chat" data-tab="chat">Chat</button>
+          <button class="console-tab" id="tab-outputs" type="button" role="tab" aria-selected="false" aria-controls="panel-outputs" data-tab="outputs">Salidas</button>
+          <button class="console-tab" id="tab-activity" type="button" role="tab" aria-selected="false" aria-controls="panel-activity" data-tab="activity">Bitácora</button>
+          <button class="console-tab" id="tab-usage" type="button" role="tab" aria-selected="false" aria-controls="panel-usage" data-tab="usage">Consumo</button>
+          <button class="console-tab" id="tab-bibliography" type="button" role="tab" aria-selected="false" aria-controls="panel-bibliography" data-tab="bibliography">Bibliografía</button>
+          <button class="console-tab" id="tab-artifacts" type="button" role="tab" aria-selected="false" aria-controls="panel-artifacts" data-tab="artifacts">Archivos</button>
+        </nav>
+        <section id="panel-chat" class="console-panel" role="tabpanel" aria-labelledby="tab-chat">
+          <div id="chat-history" class="chat-history"><p class="empty-state">Las solicitudes y respuestas de esta sesión aparecerán aquí.</p></div>
+          <form id="run-form" class="task-form">
+            <label for="task-input">Mensaje para el equipo</label>
+            <textarea id="task-input" rows="4" maxlength="12000" placeholder="Describe el objetivo, restricciones y resultado esperado..." required></textarea>
+            <div class="form-footer"><span>Sora → Shiro → Kurami · una corrección como máximo</span><button id="run-button" class="primary" type="submit">Enviar <span aria-hidden="true">↗</span></button></div>
+            <p id="run-message" class="message" role="status"></p>
+          </form>
+        </section>
+        <section id="panel-outputs" class="console-panel" role="tabpanel" aria-labelledby="tab-outputs" hidden>
+          <section id="result" class="result" hidden aria-live="polite">
+            <div class="result-meta"><span id="run-status"></span><span id="revision-count"></span></div>
+            <article><h2>Plan de Sora</h2><pre id="plan-output"></pre></article>
+            <article><h2>Revisión de Kurami</h2><pre id="review-output"></pre></article>
+            <article class="draft"><h2>Propuesta de Shiro</h2><pre id="draft-output"></pre></article>
+            <p class="approval-note">La revisión de agentes no sustituye tu aprobación. Esta versión presenta resultados; no modifica ni publica archivos.</p>
+          </section>
+          <p id="outputs-empty" class="empty-state">Aún no hay resultados en esta sesión.</p>
+        </section>
+        <section id="panel-activity" class="console-panel" role="tabpanel" aria-labelledby="tab-activity" hidden>
+          <p class="panel-caption">Eventos del grafo · no se registran prompts ni respuestas en la bitácora de actividad.</p>
+          <ol id="activity-log" class="activity-log"><li class="empty-state">La actividad aparecerá al completar una ejecución.</li></ol>
+        </section>
+        <section id="panel-usage" class="console-panel" role="tabpanel" aria-labelledby="tab-usage" hidden>
+          <div class="usage-heading"><div><h2>Consumo por agente</h2><p class="panel-caption">Ventana móvil de 24 h · tokens reportados o estimados</p></div><label class="agent-filter">Agente<select id="agent-filter"><option value="">Todos</option></select></label></div>
+          <div id="usage-cards" class="usage-cards"><p class="empty-state">Cargando contadores locales…</p></div>
+          <p class="usage-disclaimer">El porcentaje restante solo se calcula si configuras un límite en <code>exeed_config.json</code>. No equivale al saldo real de la cuenta del proveedor.</p>
+        </section>
+        <section id="panel-bibliography" class="console-panel" role="tabpanel" aria-labelledby="tab-bibliography" hidden>
+          <p class="panel-caption">Las notas se guardan en el proyecto seleccionado. La síntesis usa el modelo local; los PDF se excluyen de Git.</p>
+          <form id="doi-form" class="ingest-form">
+            <label for="doi-input">Añadir por DOI</label>
+            <div class="inline-form"><input id="doi-input" maxlength="300" placeholder="10.xxxx/xxxxx o doi.org/..." required><button class="primary" type="submit">Crear ficha</button></div>
+            <p class="fineprint">Un DOI proporciona metadatos, no el texto completo. La consulta a Crossref/OpenAlex está apagada por defecto.</p>
+          </form>
+          <form id="pdf-form" class="ingest-form">
+            <label for="pdf-input">Añadir PDF local</label>
+            <input id="pdf-input" type="file" accept="application/pdf,.pdf" required>
+            <button class="primary" type="submit">Leer PDF con modelo local <span aria-hidden="true">↗</span></button>
+            <p class="fineprint">Máximo 30 MB. Los PDF escaneados requieren OCR, aún no integrado.</p>
+          </form>
+          <p id="bibliography-message" class="message" role="status"></p>
+          <div id="bibliography-list" class="bibliography-list"><p class="empty-state">Selecciona un proyecto para consultar sus notas.</p></div>
+        </section>
+        <section id="panel-artifacts" class="console-panel" role="tabpanel" aria-labelledby="tab-artifacts" hidden>
+          <p class="panel-caption">Los archivos se guardan en el almacenamiento privado del host. En laptop local, quedan en el laptop; en Codespaces, quedan en el workspace remoto.</p>
+          <form id="artifact-form" class="ingest-form">
+            <label for="artifact-input">Cargar archivo al proyecto</label>
+            <input id="artifact-input" type="file" required>
+            <button class="primary" type="submit">Guardar en el host</button>
+            <p class="fineprint">CSV, XLSX, PDF y otros archivos. Máximo 50 MB. No se envían a IA al cargarlos.</p>
+          </form>
+          <p id="artifact-message" class="message" role="status"></p>
+          <div id="artifact-list" class="bibliography-list"><p class="empty-state">Selecciona un proyecto para consultar sus archivos.</p></div>
+        </section>
+      </section>
+    </section>
+    <footer><span>DISBOARD-NGNL</span><span>Servidor privado · sin sincronización automática</span></footer>
+  </main>
+</body>
+</html>
