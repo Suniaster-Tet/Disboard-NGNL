@@ -1,0 +1,41 @@
+{
+  "document_type": "preprint",
+  "title": "Título del preprint",
+  "authors": ["Autor o equipo"],
+  "date": "2026-10-02",
+  "abstract": "Resumen redactado a partir de resultados validados.",
+  "sections": [
+    {
+      "title": "Método y configuración",
+      "paragraphs": [
+        "Describe aquí las condiciones del cálculo, parámetros y convenciones usados."
+      ],
+      "artifacts": [
+        {
+          "path": "src/resultados/parametros.json",
+          "caption": "Parámetros de entrada exportados por el proyecto"
+        }
+      ]
+    },
+    {
+      "title": "Resultados",
+      "paragraphs": [
+        "Añade aquí una descripción breve del resultado validado."
+      ],
+      "artifacts": [
+        {
+          "path": "src/resultados/amplitud.csv",
+          "caption": "Valores numéricos de la amplitud"
+        },
+        {
+          "path": "src/resultados/distribucion.png",
+          "caption": "Distribución calculada en Wolfram Language"
+        },
+        {
+          "path": "src/calculo.wl",
+          "caption": "Código Wolfram Language utilizado"
+        }
+      ]
+    }
+  ]
+}
