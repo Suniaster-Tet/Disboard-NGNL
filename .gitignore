@@ -1,0 +1,41 @@
+# Entornos y dependencias
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+node_modules/
+
+# Variables de entorno y credenciales
+.env
+.env.*
+*.key
+secrets.json
+disboard_plugins.json
+.disboard-local/
+**/docs/bibliografia/fuentes/*.pdf
+**/docs/bibliografia/pdf-*.md
+**/docs/revisiones/
+
+# Artefactos de compilación LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+
+# Archivos temporales del sistema
+.DS_Store
+Thumbs.db
+*.swp
+
+# Jupyter / Notebook
+.ipynb_checkpoints/
+
+# Salidas locales no versionadas por defecto
+/tmp/
+/scratch/
