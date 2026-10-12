@@ -131,6 +131,39 @@ class BibliographyIngestor:
             return {}
 
     @staticmethod
+    def _doaj(doi):
+        try:
+            response = requests.get(
+                "https://doaj.org/api/v3/search/articles/doi:"
+                + quote(doi, safe="/"),
+                timeout=15,
+                headers={"User-Agent": "Disboard-NGNL/1.0 (local research bibliography)"},
+            )
+            response.raise_for_status()
+            results = response.json().get("results", [])
+        except (requests.RequestException, ValueError, TypeError):
+            return {"status": "consulta no disponible"}
+
+        normalized_doi = doi.casefold()
+        for result in results:
+            bibjson = result.get("bibjson") or {}
+            identifiers = bibjson.get("identifier") or []
+            result_dois = {
+                str(identifier.get("id", "")).casefold()
+                for identifier in identifiers
+                if identifier.get("type") == "doi"
+            }
+            if normalized_doi not in result_dois:
+                continue
+            journal = bibjson.get("journal") or {}
+            return {
+                "status": "encontrado",
+                "journal": str(journal.get("title") or ""),
+                "issns": [str(value) for value in journal.get("issns", [])],
+            }
+        return {"status": "sin coincidencia en DOAJ"}
+
+    @staticmethod
     def _openalex_citing_works(doi, limit=MAX_CITING_WORKS):
         doi_url = f"https://doi.org/{quote(doi, safe='')}"
         response = requests.get(
@@ -438,6 +471,7 @@ class BibliographyIngestor:
         }
         metadata["doi"] = normalized_doi
         open_access = self._openalex(normalized_doi) if normalized_doi and allow_public_lookup else {}
+        doaj = self._doaj(normalized_doi) if normalized_doi and allow_public_lookup else {}
         if not metadata.get("title"):
             metadata["title"] = pdf_info.get("embedded_title") or pdf_file.stem
 
@@ -494,6 +528,12 @@ class BibliographyIngestor:
                 f"- **Licencia reportada:** {open_access.get('license') or 'No especificada'}",
                 f"- **Ubicación OA:** {open_access.get('oa_url') or 'No localizada'}",
             ])
+        if doaj:
+            lines.append(f"- **DOAJ:** {doaj['status']}")
+            if doaj.get("journal"):
+                lines.append(f"- **Revista en DOAJ:** {doaj['journal']}")
+            if doaj.get("issns"):
+                lines.append(f"- **ISSN según DOAJ:** {', '.join(doaj['issns'])}")
         lines.extend(["", "## Notas de lectura", ""])
         if summaries:
             for page_numbers, summary in summaries:
@@ -527,7 +567,7 @@ class BibliographyIngestor:
             "", "## Procedencia y privacidad", "",
             f"Registro creado localmente el {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}.",
             "El PDF fuente se conserva localmente y está excluido de Git. La extracción y síntesis del PDF se "
-            "ejecutan con el modelo local. DOI/abstract/OpenAlex solo se consultan por Internet cuando "
+            "ejecutan con el modelo local. DOI y metadatos de Crossref/OpenAlex/DOAJ solo se consultan por Internet cuando "
             "DISBOARD_ALLOW_PUBLIC_DOI_LOOKUP=1.",
         ])
         output_file.write_text("\n".join(lines) + "\n", encoding="utf-8")

@@ -10,7 +10,21 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from disboard_console import DisboardConsole
+from kuhaku_pipeline import KuhakuPipeline
 from nirvalen_assistant import NirvalenAssistant
+
+
+class PublicDoiAuthorizationTests(unittest.TestCase):
+    @patch.dict("os.environ", {"DISBOARD_ALLOW_PUBLIC_DOI_LOOKUP": ""})
+    @patch("kuhaku_pipeline.requests.get")
+    def test_doi_verification_does_not_call_public_apis_without_opt_in(self, get):
+        valid, reason = KuhakuPipeline._validar_referencias_jibril(
+            "Referencia con DOI 10.1234/example"
+        )
+
+        self.assertFalse(valid)
+        self.assertIn("DISBOARD_ALLOW_PUBLIC_DOI_LOOKUP=1", reason)
+        get.assert_not_called()
 
 
 class EisenhowerMatrixTests(unittest.TestCase):

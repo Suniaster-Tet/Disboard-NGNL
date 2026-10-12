@@ -10,7 +10,7 @@ agent: Jibril
 
 - Petición de Tet y objetivo del proyecto.
 - Rango temporal, países, disciplinas o autores indicados.
-- APIs disponibles: Crossref, OpenAlex y ORCID.
+- Fuentes de verificación DOI: Crossref, OpenAlex y ORCID, únicamente con `DISBOARD_ALLOW_PUBLIC_DOI_LOOKUP=1`. DOAJ puede complementar metadatos de revista e ISSN bajo el mismo opt-in en la ingesta web; no sustituye la verificación DOI ni determina calidad o relevancia.
 - DOI semilla y propuestas de trabajos que lo citan, cuando Tet autoriza consulta pública.
 - Contrato del `edge` para evaluar alineación y posible uso de cada fuente.
 

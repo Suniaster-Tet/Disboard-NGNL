@@ -280,6 +280,11 @@ class KuhakuPipeline:
         )))
         if not dois:
             return False, "No se encontró ningún DOI verificable."
+        if os.environ.get("DISBOARD_ALLOW_PUBLIC_DOI_LOOKUP") != "1":
+            return False, (
+                "La verificación DOI requiere consultar Crossref, OpenAlex u ORCID. "
+                "Activa DISBOARD_ALLOW_PUBLIC_DOI_LOOKUP=1 solo si autorizas enviar los DOI."
+            )
 
         for doi in dois:
             doi = doi.rstrip(".,;)")

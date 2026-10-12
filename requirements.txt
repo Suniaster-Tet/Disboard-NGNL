@@ -3,6 +3,7 @@ langgraph
 langchain-core
 langgraph-checkpoint-sqlite
 fastapi
+pydantic
 uvicorn[standard]
 python-multipart
 pypdf

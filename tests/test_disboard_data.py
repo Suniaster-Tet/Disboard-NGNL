@@ -239,6 +239,22 @@ class CitationProposalTests(unittest.TestCase):
 
         return Response()
 
+    @patch("disboard_bibliography.requests.get")
+    def test_doaj_lookup_returns_journal_and_issns_for_matching_doi(self, get):
+        get.return_value = self._response({"results": [{
+            "bibjson": {
+                "identifier": [{"id": "10.1234/example", "type": "doi"}],
+                "journal": {"title": "Example Journal", "issns": ["1234-5678"]},
+            },
+        }]})
+
+        result = self.ingestor._doaj("10.1234/example")
+
+        self.assertEqual(result["status"], "encontrado")
+        self.assertEqual(result["journal"], "Example Journal")
+        self.assertEqual(result["issns"], ["1234-5678"])
+        self.assertIn("doaj.org/api/v3/search/articles/doi:10.1234/example", get.call_args.args[0])
+
     @patch.dict("os.environ", {"DISBOARD_OLLAMA_MODEL": "local-test"})
     @patch("disboard_bibliography.requests.get")
     def test_finds_citing_works_screens_locally_and_requires_explicit_approval(

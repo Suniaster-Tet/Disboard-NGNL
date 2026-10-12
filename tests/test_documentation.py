@@ -13,7 +13,7 @@ NODE_DECLARATION = re.compile(
 
 class DocumentationDiagramTests(unittest.TestCase):
     def test_mermaid_blocks_are_balanced_and_node_labels_consistent(self):
-        for relative_path in ("README.md", "docs/architecture.md"):
+        for relative_path in ("docs/architecture.md",):
             markdown = (ROOT / relative_path).read_text(encoding="utf-8")
             blocks = MERMAID_FENCE.findall(markdown)
 
@@ -35,6 +35,19 @@ class DocumentationDiagramTests(unittest.TestCase):
                         f"{relative_path} Mermaid block {block_number} "
                         f"redeclares {node_id!r} with a different label.",
                     )
+
+    def test_readme_links_to_the_documentation_index(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        for relative_path in (
+            "docs/architecture.md",
+            "docs/STACK.md",
+            "docs/OPERATIONS.md",
+            "docs/PRIVACY.md",
+            "docs/ROLES.md",
+        ):
+            with self.subTest(path=relative_path):
+                self.assertIn(f"]({relative_path})", readme)
+                self.assertTrue((ROOT / relative_path).is_file())
 
 
 if __name__ == "__main__":
