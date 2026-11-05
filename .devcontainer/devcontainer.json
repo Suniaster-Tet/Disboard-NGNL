@@ -17,6 +17,8 @@
   "containerEnv": {
     "PYTHONDONTWRITEBYTECODE": "1",
     "PYTHONUNBUFFERED": "1",
+    "DISBOARD_WEB_REQUIRE_AUTH": "true",
+    "DISBOARD_WEB_TRUST_PROXY_HEADERS": "true",
     "PRIVACY_STRICT": "true",
     "SPEECH_INPUT_BACKEND": "local-stt",
     "SPEECH_OUTPUT_BACKEND": "kitten-tts"
@@ -41,6 +43,9 @@
 
     // --- HITL / Suniaster ---
     "TET_SIGNING_KEY": "${localEnv:TET_SIGNING_KEY}",
+    "DISBOARD_WEB_AUTH_USERNAME": "${localEnv:DISBOARD_WEB_AUTH_USERNAME}",
+    "DISBOARD_WEB_AUTH_PASSWORD": "${localEnv:DISBOARD_WEB_AUTH_PASSWORD}",
+    "DISBOARD_WEB_ALLOWED_ORIGINS": "${localEnv:DISBOARD_WEB_ALLOWED_ORIGINS}",
     "SUNIASTER_CONFIG": "suniaster/config.yaml",
 
     // --- Acceso remoto seguro (opcional) ---

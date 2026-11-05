@@ -48,6 +48,20 @@ RUN apt-get update \
     poppler-utils \
     qpdf \
     ghostscript \
+   # --- Chromium para smoke tests de Playwright ---
+   libatk1.0-0 \
+   libatk-bridge2.0-0 \
+   libatspi2.0-0 \
+   libnss3 \
+   libx11-xcb1 \
+   libxcomposite1 \
+   libxdamage1 \
+   libxfixes3 \
+   libxrandr2 \
+   libgbm1 \
+   libxkbcommon0 \
+   libxshmfence1 \
+   libgtk-3-0 \
     # --- Documentos y utilidades ---
     pandoc \
     git \

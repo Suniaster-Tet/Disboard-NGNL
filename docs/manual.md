@@ -88,7 +88,7 @@ Los clientes **no ejecutan código ni almacenan datos**. Solo necesitan un naveg
 ### 4.1 Opción A — GitHub Codespaces (recomendado para empezar)
 
 1. Crea el repositorio privado `Disboard-NGNL` en GitHub.
-2. Sube el código (ver `docs/despliegue-github.md`).
+2. Sube el código (ver `docs/github-deployment.md`).
 3. Configura los secretos en **Settings → Secrets and variables → Codespaces**:
    - `GROQ_API_KEY` (free tier)
    - `GOOGLE_AI_STUDIO_API_KEY` (free tier)
@@ -165,15 +165,15 @@ make web
 uvicorn web.server:app --host 127.0.0.1 --port 8000
 ```
 
-Abre `http://127.0.0.1:8000` en el navegador. El dashboard muestra:
+Abre `http://127.0.0.1:8000` en el navegador. En la portada puedes enviar una solicitud libre y crear un edge o continuar uno existente. En su detalle puedes:
 
-* Tabla de edges con % de avance y prioridad.
-* Agenda de pendientes (Fiel Nirvalen).
-* Detalle de cada edge (contrato, bitácora, artefactos).
-* Formulario para crear un edge.
-* Visor de artefactos con validación de hash.
+* Revisar, editar y aprobar el plan de Sora.
+* Proporcionar DOIs o buscar referencias sugeridas por Jibril; aprobar cada referencia antes de incorporarla.
+* Ejecutar los entregables implementados o adjuntar archivos propios.
+* Aprobar, modificar o rechazar entregables; el rechazo elimina el archivo y deja registro de rollback.
+* Revisar hashes, avance, contrato y bitácora, y firmar el cierre.
 
-**Limitación:** el grafo web no escribe archivos; solo devuelve borradores para aprobación HITL.
+Las aprobaciones requieren configurar `TET_SIGNING_KEY` en `.env` o en los secretos del Codespace. Las búsquedas de Jibril necesitan conexión a Crossref.
 
 ### 5.3 Jupyter / JupyterLab (local o Codespaces)
 
@@ -231,16 +231,19 @@ Esto te da una terminal en el Codespace desde cualquier dispositivo con SSH. Ide
 
 ### 6.1 Desde la misma red local (LAN)
 
-Si el equipo núcleo y la tablet están en la misma red:
+No expongas FastAPI directamente por HTTP en la LAN. Para otros equipos, usa un reverse proxy con TLS delante y habilita la autenticación de la aplicación:
 
 ```bash
-# En el núcleo, arrancar el servidor escuchando en todas las interfaces
-uvicorn web.server:app --host 0.0.0.0 --port 8000
+DISBOARD_WEB_REQUIRE_AUTH=true
+DISBOARD_WEB_AUTH_USERNAME=tet
+DISBOARD_WEB_AUTH_PASSWORD=<secreto de al menos 12 caracteres>
+DISBOARD_WEB_TRUST_PROXY_HEADERS=true  # solo detrás de un proxy confiable
+DISBOARD_WEB_ALLOWED_ORIGINS=https://disboard.intranet.example
+WEB_HOST=127.0.0.1
+make web
 ```
 
-En la tablet, abre `http://<IP-del-núcleo>:8000`. Obtén la IP con `ip addr` (Linux) o `ipconfig` (Windows).
-
-**Seguridad:** solo en redes de confianza. No expongas el puerto 8000 a internet directamente.
+El proxy termina TLS y reenvía `X-Forwarded-Proto: https`; la app valida ese encabezado solo cuando `DISBOARD_WEB_TRUST_PROXY_HEADERS=true`. No habilites esa opción si se puede acceder al servidor sin pasar por el proxy.
 
 ### 6.2 Desde fuera de la red (Cloudflare Tunnel)
 
@@ -291,7 +294,7 @@ cloudflared tunnel route dns disboard-ngnl disboard.tudominio.com
 cloudflared tunnel run disboard-ngnl
 ```
 
-**Seguridad:** Cloudflare aplica WAF, DDoS protection y TLS automático. Para acceso restringido, configura **Cloudflare Access** (autenticación por correo o SSO) en el dashboard de Cloudflare.
+**Seguridad:** Cloudflare aporta TLS; configura **Cloudflare Access** como primera capa y usuario/contraseña de la aplicación como segunda. Como Cloudflare conecta al origen desde loopback, en ejecución directa establece `DISBOARD_WEB_REQUIRE_AUTH=true`, `DISBOARD_WEB_TRUST_PROXY_HEADERS=true`, `DISBOARD_WEB_AUTH_USERNAME` y una contraseña de al menos 12 caracteres en `.env`. `docker-compose.yml` ya fuerza autenticación para el servicio web.
 
 ### 6.3 Alternativa: Quick Tunnel (temporal, sin cuenta)
 
@@ -319,20 +322,22 @@ ngrok http 8000
 | Principio | Implementación |
 |---|---|
 | **Mínima exposición** | El servidor escucha en `127.0.0.1` por defecto. Solo expón el puerto cuando uses un túnel. |
-| **TLS obligatorio** | Cloudflare Tunnel provee HTTPS automático. Nunca expongas HTTP plano a internet. |
-| **Autenticación** | Cloudflare Access para restringir por correo/SSO. `TET_SIGNING_KEY` para firmar aprobaciones HITL. |
-| **Filtrado de datos** | Fiel Nirvalen filtra datos sensibles antes de cualquier prompt externo (`privacy/filtros.py`). |
+| **TLS obligatorio** | El middleware rechaza conexiones remotas por HTTP. En LAN usa reverse proxy TLS; nunca expongas HTTP plano. |
+| **Autenticación** | Basic Auth de la aplicación es obligatoria para clientes remotos; Cloudflare Access es una capa adicional. `TET_SIGNING_KEY` firma decisiones HITL, no autentica sesiones. |
+| **Filtrado de datos** | La búsqueda libre de Jibril aplica `privacy/filters.py` antes de Crossref. No se afirma que todas las futuras integraciones estén filtradas automáticamente. |
 | **Secretos fuera del código** | Usa `.env` local o Secrets de Codespaces. Nunca commitees `.env`. |
 | **Actualizaciones** | Mantén dependencias y `cloudflared` actualizados. |
 
 ### 7.2 Checklist de seguridad antes de exponer
 
 - [ ] `TET_SIGNING_KEY` generada y configurada (no la default).
+- [ ] `DISBOARD_WEB_AUTH_USERNAME` y contraseña fuerte configurados en `.env`.
+- [ ] `DISBOARD_WEB_TRUST_PROXY_HEADERS=true` solo si todo tráfico llega por un proxy confiable.
 - [ ] `DISBOARD_WEB_CHECKPOINT_DB` apunta a almacenamiento persistente si despliegas en contenedores.
 - [ ] Cloudflare Access configurado para restringir acceso por correo.
 - [ ] Firewall del núcleo permite solo tráfico saliente a Cloudflare (puerto 7844).
 - [ ] `.env` en `.gitignore`.
-- [ ] `privacy/politica_prompts.md` revisada.
+- [ ] `privacy/prompts_policy.md` revisada.
 - [ ] Backups de `edges/` y `logs/` configurados.
 
 ### 7.3 Qué NO hacer
@@ -364,22 +369,24 @@ disboard dashboard
 ### 8.3 Revisar entregables
 
 * Consola: `edges/<edge-id>/artifacts/`
-* Dashboard web: clic en el edge → pestaña "Artefactos"
-* Bitácora: `edges/<edge-id>/bitacora.jsonl`
+* Dashboard web: abrir el edge y consultar la sección de entregables.
+* Bitácora: `edges/<edge-id>/log.jsonl`
 
 ### 8.4 Aprobar cierre
 
 ```bash
-disboard aprobar <edge-id>
-# o
-disboard rechazar <edge-id>
+disboard work <edge-id>
+disboard approve <edge-id> --paso final
+disboard reject <edge-id> --paso final
 ```
+
+La consola y el dashboard comparten `workflow.json`, `contract.md`, `artifacts/` y `log.jsonl`; puedes alternar entre ambos para un mismo edge.
 
 ### 8.5 Acceso desde tablet
 
 1. Abre el navegador de la tablet.
-2. Ve a `https://disboard.tudominio.com` (si usas Cloudflare Tunnel) o `http://<IP-local>:8000` (si estás en la misma red).
-3. Inicia sesión (si Cloudflare Access está configurado).
+2. Ve a `https://disboard.tudominio.com` o al hostname HTTPS del reverse proxy.
+3. Autentícate en Cloudflare Access si está configurado y en el diálogo Basic Auth de Disboard.
 4. Consulta el dashboard, revisa artefactos o aprueba HITL.
 
 ---
@@ -388,6 +395,8 @@ disboard rechazar <edge-id>
 | Síntoma | Causa | Solución |
 |---|---|---|
 | `TET_SIGNING_KEY no configurada` | Falta variable | Añadir a `.env` o Secrets |
+| `503: credenciales requeridas` | No hay usuario/contraseña remotos válidos | Configurar `DISBOARD_WEB_AUTH_USERNAME` y contraseña de 12+ caracteres |
+| `426: se requiere HTTPS` | Petición remota llegó por HTTP | Usar TLS en reverse proxy y reenviar `X-Forwarded-Proto: https` |
 | `Suniaster degradado` | Falta API key | `disboard check-models` indica cuál |
 | `No se puede cargar el dashboard` | El servidor web no está activo | `make web` y revisar `logs/web_graph_checkpoints.sqlite` |
 | `cloudflared: command not found` | No instalado | Instalar desde el `.deb` o binario |
@@ -403,11 +412,11 @@ disboard rechazar <edge-id>
 | Documento | Contenido |
 |---|---|
 | `README.md` | Arquitectura, agentes, flujo |
-| `docs/arquitectura.md` | Diagrama del grafo y componentes |
+| `docs/architecture.md` | Diagrama de arquitectura y componentes |
 | `docs/agent_roles.md` | Roles y analogías NGNL |
-| `docs/despliegue-github.md` | Despliegue en Codespaces |
+| `docs/github-deployment.md` | Despliegue en Codespaces |
 | `docs/web-local.md` | Endpoints del servidor web |
-| `privacy/politica_prompts.md` | Política de prompts externos |
+| `privacy/prompts_policy.md` | Política de prompts externos |
 | `suniaster/config.yaml` | Modelos por agente |
 
 ---

@@ -1,30 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
+{% if agenda %}
+<h2>Agenda y aprobaciones</h2>
+<section class="section">
+  <table>
+    <thead><tr><th>Edge</th><th>Pendiente</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+      {% for item in pending %}
+      <tr><td>{{ item.edge.titulo }}</td><td>{{ item.kind }}</td><td>{{ item.edge.estado }}</td><td><a class="button secondary" href="{{ item.target }}">Revisar</a></td></tr>
+      {% else %}<tr><td colspan="4">No hay aprobaciones pendientes.</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<div class="grid">
+  <section class="panel">
+    <h2>Solicitud directa de Tet</h2>
+    <form id="direct-request-form">
+      <label>Solicitud<textarea name="text" required placeholder="Describe libremente lo que necesitas. Se guardará en el edge y Sora preparará un plan para revisión."></textarea></label>
+      <label>Continuar en un edge<select name="edge_id"><option value="">Crear edge nuevo</option>{% for edge in edges %}<option value="{{ edge.id }}">{{ edge.titulo }}</option>{% endfor %}</select></label>
+      <label>Título del edge (opcional)<input name="title" maxlength="120"></label>
+      <button type="submit">Enviar solicitud</button>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Proyectos</h2>
+    <p><strong>{{ edges|length }}</strong> edges registrados</p>
+    <p class="muted">Las solicitudes, planes, referencias, entregables y veredictos quedan guardados en cada edge.</p>
+    <a class="button secondary" href="/edges/new">Crear edge sin plan</a>
+  </section>
+</div>
+
+<section class="section">
 <h2>Edges activos</h2>
 <table>
-  <thead>
-    <tr><th>ID</th><th>Título</th><th>Estado</th><th>Avance</th></tr>
-  </thead>
+  <thead><tr><th>Proyecto</th><th>Estado</th><th>Avance</th><th>Prioridad</th><th>Pendiente</th></tr></thead>
   <tbody>
     {% for edge in edges %}
+      {% set workflow = edge_workflows[edge.id] %}
+      {% set pending_count = (workflow.bibliography|selectattr('status', 'equalto', 'pending_approval')|list|length) + (workflow.deliverables|selectattr('estado', 'equalto', 'entregado')|list|length) + (1 if workflow.plan and not workflow.plan_approved else 0) %}
       <tr>
-        <td><a href="/edges/{{ edge.id }}">{{ edge.id }}</a></td>
-        <td>{{ edge.titulo }}</td>
+        <td><a href="/edges/{{ edge.id }}"><strong>{{ edge.titulo }}</strong></a><br><span class="meta">{{ edge.id }}</span></td>
         <td>{{ edge.estado }}</td>
-        <td>{{ edge.avance }}%</td>
+        <td><div class="progress"><div class="progress-fill" style="width:{{ edge.avance }}%"></div></div>{{ edge.avance }}%</td>
+        <td><span class="badge">{{ edge.prioridad }}</span></td>
+        <td>{{ pending_count }}</td>
       </tr>
-    {% else %}
-      <tr><td colspan="4">No hay edges activos.</td></tr>
-    {% endfor %}
+    {% else %}<tr><td colspan="5">Todavía no hay edges.</td></tr>{% endfor %}
   </tbody>
 </table>
+</section>
 
 {% if thermometers %}
-<h2>Termómetros</h2>
+<section class="section"><h2>Fechas objetivo</h2>
 <table>
-  <thead>
-    <tr><th>Edge</th><th>Título</th><th>Prioridad</th><th>Avance</th><th>Días restantes</th></tr>
-  </thead>
+  <thead><tr><th>Edge</th><th>Título</th><th>Prioridad</th><th>Avance</th><th>Días restantes</th></tr></thead>
   <tbody>
     {% for t in thermometers %}
       <tr>
@@ -37,5 +67,19 @@
     {% endfor %}
   </tbody>
 </table>
+</section>
+{% endif %}
+<script>
+document.getElementById('direct-request-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = Object.fromEntries(new FormData(event.currentTarget));
+  try {
+    const response = await fetch('/api/requests', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(form)});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || 'No se pudo enviar la solicitud.');
+    window.location = `/edges/${result.edge_id}`;
+  } catch (error) { document.getElementById('global-status').textContent = error.message; }
+});
+</script>
 {% endif %}
 {% endblock %}

@@ -24,6 +24,10 @@ def _cmd_continue(args: argparse.Namespace) -> int:
  return commands.continue_edge(args.edge_id)
 
 
+def _cmd_work(args: argparse.Namespace) -> int:
+ return commands.work(args.edge_id)
+
+
 def _cmd_approve(args: argparse.Namespace) -> int:
  return commands.approve(args.edge_id, args.paso)
 
@@ -102,6 +106,10 @@ def build_parser() -> argparse.ArgumentParser:
  p_cont = sub.add_parser("continue", help="Continuar un edge existente")
  p_cont.add_argument("edge_id")
  p_cont.set_defaults(func=_cmd_continue)
+
+ p_work = sub.add_parser("work", help="Operar un edge desde consola o dashboard")
+ p_work.add_argument("edge_id")
+ p_work.set_defaults(func=_cmd_work)
 
  p_app = sub.add_parser("approve", help="Aprobar un paso del edge")
  p_app.add_argument("edge_id")

@@ -53,6 +53,12 @@ class Artifact:
         target = (artifact_root / (target_relative or source.name)).resolve()
         if not target.is_relative_to(artifact_root):
             raise ValueError("La ruta del artefacto debe permanecer dentro del edge.")
+        if target.exists():
+            original = target
+            version = 2
+            while target.exists():
+                target = original.with_name(f"{original.stem}-{version}{original.suffix}")
+                version += 1
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         mime, _ = mimetypes.guess_type(str(target))
@@ -104,8 +110,15 @@ class Artifact:
     @staticmethod
     def list(edge: Edge) -> List[Dict[str, Any]]:
         log = Log(edge.id, ruta=edge.ruta_log)
-        events = log.leer_por_evento("artifact_registered")
-        return [e.get("detalles", {}) for e in events]
+        active: Dict[str, Dict[str, Any]] = {}
+        for event in log.leer():
+            details = event.get("detalles", {})
+            name = details.get("name")
+            if event.get("evento") == "artifact_registered" and name:
+                active[name] = details
+            elif event.get("evento") == "artifact_deleted" and name:
+                active.pop(name, None)
+        return list(active.values())
 
     @staticmethod
     def artifact_path(edge_id: str, name: str) -> Path:

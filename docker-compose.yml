@@ -40,11 +40,13 @@ services:
     environment:
       - WEB_HOST=0.0.0.0
       - WEB_PORT=8000
+      - DISBOARD_WEB_REQUIRE_AUTH=true
+      - DISBOARD_WEB_TRUST_PROXY_HEADERS=true
     ports:
       - "127.0.0.1:8000:8000"
     command: uvicorn web.server:app --host 0.0.0.0 --port 8000
     healthcheck:
-      test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/api/status >/dev/null"]
+      test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/healthz >/dev/null"]
       interval: 30s
       timeout: 5s
       retries: 3

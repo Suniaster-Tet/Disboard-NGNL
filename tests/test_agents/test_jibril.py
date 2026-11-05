@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -150,3 +151,35 @@ def test_enrich_reservoir_writes_jsonl(tmp_path, monkeypatch):
 def test_enrich_reservoir_without_edge_returns_none():
     j = JibrilScientific(edge_id=None)
     assert j.enrich_reservoir([{"doi": "10.1/x"}]) is None
+
+
+def test_search_references_filters_query_and_verifies_each_doi(monkeypatch):
+    from agents.jibril.crossref_client import CrossrefClient
+
+    captured = {}
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"message": {"items": [{"DOI": "10.1234/valid"}]}}
+
+    def fake_get(url, params, timeout):
+        captured.update(params)
+        return Response()
+
+    monkeypatch.setattr("agents.jibril.crossref_client.httpx.get", fake_get)
+    jibril = JibrilScientific(edge_id="edge-test")
+    jibril.crossref = CrossrefClient()
+    jibril.crossref.fetch = lambda doi: {
+        "DOI": doi, "title": ["Verified"], "author": [], "published": {"date-parts": [[2026]]}
+    }
+    jibril.openalex = FakeOpenAlex(None)
+    jibril.orcid = FakeOrcid(None)
+
+    results = jibril.search_references("Contact tet@example.org about this paper")
+
+    assert "[EMAIL_PROTECTED]" in captured["query.bibliographic"]
+    assert [item["doi"] for item in results] == ["10.1234/valid"]
+    assert results[0]["source"] == "crossref"

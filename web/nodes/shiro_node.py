@@ -15,6 +15,7 @@ def shiro_node(state: OverallState) -> OverallState:
             continue
         code, test = shiro.generate_tdd_code(d.get("descripcion", ""))
         results.append({"entregable": d["id"], "code": code, "test": test})
+        d["estado"] = "entregado"
 
     state.setdefault("action_details", {})["shiro_results"] = results
     state["current_step"] = "shiro"

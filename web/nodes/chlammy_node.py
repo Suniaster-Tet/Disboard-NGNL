@@ -10,10 +10,13 @@ def chlammy_node(state: OverallState) -> OverallState:
     chlammy = ChlammyAuditor(edge_id=edge_id)
 
     contract = state.get("action_details", {}).get("contract", {})
-    deliverables = state.get("artifacts", [])
+    deliverables = state.get("entregables", [])
 
     result = chlammy.verify_contract_alignment(contract, deliverables)
     state.setdefault("action_details", {})["audit"] = result
+    for deliverable in deliverables:
+        if deliverable.get("agente_asignado") in {"Chlammy", "Chlammy Zell"}:
+            deliverable["estado"] = "entregado"
     state["current_step"] = "chlammy"
-    state["next_agent"] = "hitl"
+    state["next_agent"] = "supervisor"
     return state

@@ -15,6 +15,7 @@ from core.edge import Edge
 from core.log import Log
 from elkia.dashboard import ElkiaDashboard
 from elkia.registry import ElkiaRegistry
+from web.workflow import EdgeWorkflow
 
 TEMPLATES = Jinja2Templates(directory="web/templates")
 
@@ -30,24 +31,33 @@ def _base_context(request: Request, **extra: Any) -> Dict[str, Any]:
 def render_index(request: Request) -> HTMLResponse:
     registry = ElkiaRegistry()
     dashboard = ElkiaDashboard(registro=registry)
+    edges = registry.listar()
     return TEMPLATES.TemplateResponse(
         request=request,
         name="index.html",
         context=_base_context(
             request,
-            edges=registry.listar(),
+            edges=edges,
             thermometers=dashboard.listar_termometros(),
             summary=registry.resumen(),
+            edge_workflows={edge.id: EdgeWorkflow(edge).snapshot() for edge in edges},
         ),
     )
 
 
 def render_edges(request: Request) -> HTMLResponse:
     registry = ElkiaRegistry()
+    edges = registry.listar()
     return TEMPLATES.TemplateResponse(
         request=request,
         name="index.html",
-        context=_base_context(request, edges=registry.listar(), thermometers=[]),
+        context=_base_context(
+            request,
+            edges=edges,
+            thermometers=[],
+            summary=registry.resumen(),
+            edge_workflows={edge.id: EdgeWorkflow(edge).snapshot() for edge in edges},
+        ),
     )
 
 
@@ -69,6 +79,7 @@ def render_edge_detail(request: Request, edge: Edge) -> HTMLResponse:
             contract=contract,
             log_entries=log,
             artifacts=artifacts,
+            workflow=EdgeWorkflow(edge).snapshot(),
         ),
     )
 
@@ -85,10 +96,26 @@ def render_new_edge(request: Request) -> HTMLResponse:
 
 def render_agenda(request: Request) -> HTMLResponse:
     registry = ElkiaRegistry()
+    edges = registry.listar()
+    pending = []
+    for edge in edges:
+        workflow = EdgeWorkflow(edge).snapshot()
+        if workflow["plan"] and not workflow["plan_approved"]:
+            pending.append({"edge": edge, "kind": "Plan de Sora", "target": f"/edges/{edge.id}"})
+        pending.extend(
+            {"edge": edge, "kind": f"Bibliografía: {item['doi']}", "target": f"/edges/{edge.id}"}
+            for item in workflow["bibliography"] if item["status"] == "pending_approval"
+        )
+        pending.extend(
+            {"edge": edge, "kind": item["descripcion"], "target": f"/edges/{edge.id}"}
+            for item in workflow["deliverables"] if item["estado"] == "entregado"
+        )
     return TEMPLATES.TemplateResponse(
         request=request,
         name="index.html",
-        context=_base_context(request, edges=registry.listar(), thermometers=[], agenda=True),
+        context=_base_context(
+            request, edges=edges, thermometers=[], agenda=True, pending=pending
+        ),
     )
 
 

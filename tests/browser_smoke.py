@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 import pytest
+from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import sync_playwright
 
 pytestmark = pytest.mark.slow
@@ -59,7 +60,15 @@ def test_dashboard_browser_smoke(tmp_path, monkeypatch) -> None:
 
             try:
                 for browser_type in installed:
-                    browser = browser_type.launch()
+                    try:
+                        browser = browser_type.launch()
+                    except PlaywrightError as error:
+                        if "error while loading shared libraries" in str(error):
+                            pytest.skip(
+                                "Faltan bibliotecas del sistema para Chromium; "
+                                "reconstruye el devcontainer o instala Playwright con --with-deps."
+                            )
+                        raise
                     try:
                         page = browser.new_page(viewport={"width": 1280, "height": 900})
                         page_errors: list[str] = []
@@ -68,9 +77,13 @@ def test_dashboard_browser_smoke(tmp_path, monkeypatch) -> None:
                         page.get_by_role("heading", name="Disboard-NGNL").wait_for()
                         page.get_by_role("link", name="Nuevo edge").click()
                         page.locator('input[name="title"]').fill("Browser smoke edge")
-                        page.get_by_role("button", name="Crear").click()
+                        page.locator('textarea[name="seed"]').fill(
+                            "Probar la creación de un edge desde el navegador."
+                        )
+                        page.get_by_role("button", name="Crear y proponer plan").click()
                         page.wait_for_url(re.compile(r"/edges/edge-browser-smoke-edge-[a-f0-9]+$"))
                         page.get_by_text("Browser smoke edge").wait_for()
+                        page.get_by_role("heading", name="Plan de Sora").wait_for()
 
                         page.set_viewport_size({"width": 390, "height": 844})
                         dimensions = page.evaluate(

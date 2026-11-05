@@ -49,7 +49,7 @@ def test_contract_aprobar_y_guardar(tmp_edge, tmp_path):
 
 
 def test_hitl_firma_ida_y_vuelta(monkeypatch):
-    monkeypatch.setenv("TET_SIGNING_KEY", "clave-de-prueba")
+    monkeypatch.setenv("TET_SIGNING_KEY", "clave-de-prueba-" + "x" * 32)
     payload = {"edge_id": "edge-test", "accion": "aprobar"}
     firma = generar_firma_tet(payload)
     assert verificar_firma_tet(payload, firma)
@@ -59,4 +59,10 @@ def test_hitl_firma_ida_y_vuelta(monkeypatch):
 def test_hitl_sin_clave_falla(monkeypatch):
     monkeypatch.delenv("TET_SIGNING_KEY", raising=False)
     with pytest.raises(RuntimeError):
+        generar_firma_tet({"x": 1})
+
+
+def test_hitl_rechaza_clave_debil(monkeypatch):
+    monkeypatch.setenv("TET_SIGNING_KEY", "debil")
+    with pytest.raises(RuntimeError, match="32 bytes"):
         generar_firma_tet({"x": 1})

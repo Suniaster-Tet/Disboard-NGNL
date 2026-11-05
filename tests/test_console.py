@@ -7,7 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from agents.fiel_nirvalen.agent import FielNirvalen
-from console.main import build_parser, main as console_main
+from console.main import build_parser
+from console.main import main as console_main
 
 
 class CliTests(unittest.TestCase):
@@ -29,6 +30,10 @@ class CliTests(unittest.TestCase):
             upd.return_value.check_and_update.return_value = {
                 "status": "ok", "details": {}, "agents_with_error": 0}
             self.assertEqual(console_main(["check-models"]), 0)
+
+    def test_work_command_is_registered(self):
+        args = build_parser().parse_args(["work", "edge-test"])
+        self.assertTrue(callable(args.func))
 
 
 class FielNirvalenTests(unittest.TestCase):

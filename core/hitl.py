@@ -21,6 +21,8 @@ def _clave() -> str:
         raise RuntimeError(
             "Falta TET_SIGNING_KEY. Configúrala en .env (ver .env.example)."
         )
+    if len(clave.encode("utf-8")) < 32:
+        raise RuntimeError("TET_SIGNING_KEY debe tener al menos 32 bytes aleatorios.")
     return clave
 
 
@@ -30,7 +32,10 @@ def _serializar(payload: Dict[str, Any]) -> bytes:
 
 def generar_firma_tet(payload: Dict[str, Any], clave: str | None = None) -> str:
     """Genera la firma HMAC-SHA256 de una aprobación de Tet."""
-    secreto = (clave or _clave()).encode("utf-8")
+    secret_text = clave or _clave()
+    if len(secret_text.encode("utf-8")) < 32:
+        raise RuntimeError("TET_SIGNING_KEY debe tener al menos 32 bytes aleatorios.")
+    secreto = secret_text.encode("utf-8")
     return hmac.new(secreto, _serializar(payload), hashlib.sha256).hexdigest()
 
 

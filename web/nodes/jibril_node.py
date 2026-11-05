@@ -12,7 +12,12 @@ def jibril_node(state: OverallState) -> OverallState:
 
     result = jibril.fetch_many(dois)
     state["bibliography"] = state.get("bibliography", []) + result["ok"]
-    state["action_details"]["jibril_rejected"] = result["rejected"]
+    action_details = state.setdefault("action_details", {})
+    action_details["jibril_rejected"] = result["rejected"]
+    action_details["jibril_verified"] = result["ok"]
+    for deliverable in state.get("entregables", []):
+        if deliverable.get("agente_asignado") == "Jibril":
+            deliverable["estado"] = "entregado"
     state["current_step"] = "jibril"
     state["next_agent"] = "supervisor"
     return state

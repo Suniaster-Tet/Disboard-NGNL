@@ -6,7 +6,10 @@ from typing import Any, Dict, Optional
 
 import httpx
 
+from privacy.filters import filter_prompt_external
+
 BASE = "https://api.crossref.org/works/"
+SEARCH_URL = "https://api.crossref.org/works"
 
 
 class CrossrefClient:
@@ -26,3 +29,17 @@ class CrossrefClient:
         if r.status_code != 200:
             return None
         return r.json().get("message")
+
+    def search(self, query: str, limit: int = 8) -> list[Dict[str, Any]]:
+        safe_query = filter_prompt_external(query)
+        params: Dict[str, Any] = {"query.bibliographic": safe_query, "rows": limit}
+        if self.mailto:
+            params["mailto"] = self.mailto
+        try:
+            response = httpx.get(SEARCH_URL, params=params, timeout=15)
+        except httpx.HTTPError:
+            return []
+        if response.status_code != 200:
+            return []
+        items = response.json().get("message", {}).get("items", [])
+        return [item for item in items if item.get("DOI")]

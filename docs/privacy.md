@@ -7,15 +7,15 @@
 
 1. **Local-first.** El equipo núcleo ejecuta el backend, los agentes, las bases
    de datos y los artefactos. Los clientes solo consumen interfaz o terminal.
-2. **Filtrado centralizado.** Todos los prompts externos pasan por
-   `privacy/filters.py`. Fiel Nirvalen reexporta ese filtro en
-   `agents/fiel_nirvalen/privacy_filter.py`.
-3. **Cálculos locales.** Shiro e Izuna ejecutan operaciones sensibles en el
-   host. Solo los metadatos necesarios viajan a APIs externas.
-4. **DOI públicos.** Jibril envía DOIs a Crossref/OpenAlex/ORCID, pero nunca el
-   PDF ni el contrato del proyecto.
-5. **Wolfram condicionado.** Si `WOLFRAM_API_KEY` falta, Suniaster asigna a
-   Shiro un proveedor alternativo y Tet valida el resultado.
+2. **Filtrado explícito.** `privacy/filters.py` ofrece filtros reutilizables;
+   no se aplican automáticamente a todos los consumidores. La búsqueda libre
+   del dashboard filtra el texto antes de enviarlo a Crossref.
+3. **Cálculos locales.** El workflow web actual genera scaffolds y no ejecuta
+   cálculos de Shiro ni envía prompts a un proveedor LLM.
+4. **DOI públicos.** Jibril envía consultas o DOIs a Crossref/OpenAlex/ORCID;
+   no envía PDFs ni contratos en las rutas implementadas.
+5. **Wolfram condicionado.** El cliente de Wolfram existe, pero no está
+   conectado al workflow del dashboard.
 6. **Modo estricto.** `PRIVACY_STRICT=true` (por defecto) aplica patrones extra
    (DNI, IBAN, URL con token). En `false`, solo patrones base (email, teléfono,
    tarjeta).
@@ -24,9 +24,10 @@
 
 | Servicio | Qué se envía | Qué NO se envía |
 |---|---|---|
-| Groq / Google AI Studio / OpenAI / Anthropic / DeepSeek | Prompt filtrado, metadatos mínimos | Datos sensibles sin filtrar |
-| Crossref / OpenAlex / ORCID | DOIs y metadatos de consulta | PDF, contrato, contenido del edge |
-| Wolfram | Expresiones simbólicas | Datos sensibles, contrato |
+| Groq / Google AI Studio / OpenAI / Anthropic / DeepSeek | No invocados por el workflow actual del dashboard | No aplica a ese flujo |
+| Crossref | Consulta bibliográfica filtrada y DOIs | PDF, contrato, contenido completo del edge |
+| OpenAlex / ORCID | DOI verificado | PDF, contrato, contenido completo del edge |
+| Wolfram | No invocado por el workflow actual del dashboard | No aplica a ese flujo |
 | Cloudflare Tunnel | Tráfico HTTPS del dashboard (si se habilita) | Nada adicional (es un proxy) |
 
 ## Almacenamiento local
@@ -38,11 +39,15 @@
 - `logs/tensor_db.jsonl` — base tensorial de Izuna.
 - `logs/web_graph_checkpoints.sqlite` — checkpointer SQLite durable del grafo web.
 
+El contenido del edge y los checkpoints no se cifran en reposo por la aplicación.
+Los logs se escriben de forma append-only por el flujo normal, pero un usuario con
+acceso al host puede modificarlos; conserva backups y protege el sistema de archivos.
+
 ## Verificación
 
-- `privacy.filters.is_safe(text)` comprueba si un texto contiene patrones sensibles.
-- `privacy.filters.filter_sensitive_data(text)` filtra antes de escribir en log o prompt.
-- `privacy.filters.filter_dict(data)` filtra diccionarios antes de enviarlos.
+- `privacy.filters.is_safe(text)` comprueba patrones conocidos; no es un DLP completo.
+- `privacy.filters.filter_sensitive_data(text)` filtra cuando el llamador lo invoca.
+- `privacy.filters.filter_dict(data)` filtra diccionarios cuando el llamador lo invoca.
 
 ## Referencias
 

@@ -2,52 +2,192 @@
 {% block content %}
 {% if is_new %}
   <h2>Nuevo edge</h2>
-  <form id="new-edge-form">
-    <label>Idea semilla (ruta): <input name="seed" type="text"></label><br>
-    <label>Título: <input name="title" type="text"></label><br>
-    <button type="submit">Crear</button>
-  </form>
+  <section class="panel" style="max-width:760px">
+    <form id="new-edge-form">
+      <label>Título del proyecto<input name="title" maxlength="120" placeholder="Opcional"></label>
+      <label>Idea semilla o solicitud<textarea name="seed" required placeholder="Escribe la solicitud inicial de Tet. Sora preparará un plan para revisión."></textarea></label>
+      <button type="submit">Crear y proponer plan</button>
+    </form>
+  </section>
   <script>
     document.getElementById('new-edge-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const data = Object.fromEntries(new FormData(e.target));
-      const res = await fetch('/edges/new', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(data),
-      });
-      const json = await res.json();
-      window.location = `/edges/${json.edge_id}`;
+      const data = Object.fromEntries(new FormData(e.currentTarget));
+      const response = await fetch('/edges/new', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+      const result = await response.json();
+      if (!response.ok) { document.getElementById('global-status').textContent = result.detail || 'No se pudo crear el edge.'; return; }
+      window.location = `/edges/${result.edge_id}`;
     });
   </script>
 {% else %}
-  <h2>Edge: {{ edge.id }}</h2>
-  <p><strong>Título:</strong> {{ edge.titulo }}</p>
-  <p><strong>Estado:</strong> {{ edge.estado }}</p>
-  <p><strong>Avance:</strong> {{ edge.avance }}%</p>
+  {% set plan = workflow.plan %}
+  {% set pending_final = workflow.deliverables|rejectattr('estado', 'equalto', 'aprobado')|list|length %}
+  <div class="row" style="justify-content:space-between">
+    <div><p class="meta">{{ edge.id }}</p><h2>{{ edge.titulo }}</h2></div>
+    <span class="badge">{{ edge.estado }} · {{ edge.avance }}%</span>
+  </div>
 
-  {% if contract %}
-  <h3>Contrato</h3>
-  <p>Aprobado por Tet: {{ 'sí' if contract.aprobado_por_tet else 'no' }}</p>
-  <h4>Objetivos</h4>
-  <ul>{% for o in contract.objetivos %}<li>{{ o }}</li>{% endfor %}</ul>
-  <h4>Metas</h4>
-  <ul>{% for m in contract.metas %}<li>{{ m }}</li>{% endfor %}</ul>
-  <h4>Entregables</h4>
-  <ul>{% for e in contract.entregables %}<li>{{ e.id }} — {{ e.descripcion }}</li>{% endfor %}</ul>
-  {% endif %}
+  <section class="section">
+    <h3>Solicitud directa de Tet</h3>
+    <form id="edge-request-form" class="panel">
+      <label>Nueva instrucción<textarea name="text" required placeholder="Añade contexto, una corrección o una nueva solicitud para este edge."></textarea></label>
+      <button type="submit">Enviar a Sora</button>
+    </form>
+    {% if workflow.requests %}<ul>{% for item in workflow.requests %}<li><strong>{{ item.created_at[:10] }}</strong> · {{ item.text }} <span class="badge">{{ item.status }}</span></li>{% endfor %}</ul>{% endif %}
+  </section>
 
-  <h3>Log (últimos eventos)</h3>
-  <ul>
-    {% for entry in log_entries[-20:] %}
-      <li>{{ entry.timestamp }} — {{ entry.agente or '—' }} — {{ entry.evento }}</li>
-    {% endfor %}
-  </ul>
+  <section class="section">
+    <div class="row" style="justify-content:space-between"><h3>Plan de Sora</h3>
+      <button type="button" class="secondary" data-post="/api/edges/{{ edge.id }}/plan">Generar o actualizar plan</button>
+    </div>
+    {% if plan %}
+    <p>Estado: <span class="badge">{{ 'Aprobado por Tet' if workflow.plan_approved else 'Pendiente de aprobación' }}</span></p>
+    <form id="plan-approval-form" class="panel">
+      <label>Objetivos, uno por línea<textarea id="plan-objectives">{{ plan.objetivos|join('\n') }}</textarea></label>
+      <label>Metas, una por línea<textarea id="plan-goals">{{ plan.metas|join('\n') }}</textarea></label>
+      <label>Entregables (JSON editable)<textarea id="plan-deliverables">{{ plan.entregables|tojson(indent=2) }}</textarea></label>
+      <button type="submit" {% if workflow.plan_approved %}disabled{% endif %}>Aprobar plan y firmar</button>
+      {% if workflow.plan_approved %}<span class="meta">Para cambiar un plan aprobado, envía una nueva solicitud y genera otra propuesta.</span>{% endif %}
+    </form>
+    {% else %}<p class="muted">Aún no hay una propuesta. Envía una solicitud y genera el plan.</p>{% endif %}
+  </section>
 
-  <h3>Artefactos</h3>
-  <ul>
-    {% for a in artifacts %}
-      <li><a href="/artifacts/{{ edge.id }}/{{ a.name }}">{{ a.name }}</a></li>
-    {% endfor %}
-  </ul>
+  <section class="section">
+    <h3>Bibliografía</h3>
+    <div class="grid">
+      <form id="bibliography-search-form" class="panel">
+        <label>Buscar sugerencias de Jibril en Crossref<input name="query" required placeholder="Tema, título o autores"></label>
+        <button type="submit">Buscar referencias</button>
+      </form>
+      <form id="bibliography-doi-form" class="panel">
+        <label>DOI proporcionado por Tet<input name="doi" required placeholder="10.xxxx/xxxxx"></label>
+        <button type="submit">Verificar DOI</button>
+      </form>
+    </div>
+    <div class="section">
+      {% for reference in workflow.bibliography %}
+        {% set metadata = reference.metadata %}
+        <article class="panel" style="margin-bottom:.75rem">
+          <div class="row" style="justify-content:space-between"><strong>{{ metadata.title or reference.doi }}</strong><span class="badge">{{ reference.status }}</span></div>
+          <p>{{ metadata.authors|join(', ') }}{% if metadata.year %} · {{ metadata.year }}{% endif %}{% if metadata.journal %} · {{ metadata.journal }}{% endif %}</p>
+          <p><a href="https://doi.org/{{ reference.doi }}" target="_blank" rel="noopener">{{ reference.doi }}</a> · fuente: {{ metadata.source or 'verificada' }} · propuesta por {{ reference.proposer }}</p>
+          {% if reference.status == 'pending_approval' %}
+          <div class="row"><button type="button" data-post="/api/edges/{{ edge.id }}/bibliography/{{ reference.doi }}/decision" data-body='{"verdict":"approve"}'>Autorizar bibliografía</button><button type="button" class="danger" data-post="/api/edges/{{ edge.id }}/bibliography/{{ reference.doi }}/decision" data-body='{"verdict":"reject"}'>Rechazar</button></div>
+          {% endif %}
+        </article>
+      {% else %}<p class="muted">Todavía no hay referencias propuestas. La bibliografía no se incorpora al plan hasta que Tet la autorice.</p>{% endfor %}
+    </div>
+  </section>
+
+  <section class="section">
+    <h3>Entregables</h3>
+    {% if not workflow.plan_approved %}<p class="muted">Aprueba el plan para habilitar la ejecución y la carga de artefactos.</p>{% endif %}
+    {% for item in workflow.deliverables %}
+      <article class="panel" style="margin:1rem 0">
+        <div class="row" style="justify-content:space-between"><h4>{{ item.id }} · {{ item.descripcion }}</h4><span class="badge">{{ item.estado }}</span></div>
+        <p>Responsable: {{ item.agente_asignado or 'Shiro' }}</p>
+        {% if item.observaciones %}<p><strong>Observaciones de Tet:</strong> {{ item.observaciones }}</p>{% endif %}
+        {% for artifact in workflow.artifacts.get(item.id, []) %}
+          {% if artifact.status != 'rejected' %}
+          <p><a href="/artifacts/{{ edge.id }}/{{ artifact.name }}">{{ artifact.name }}</a> · SHA-256 <code>{{ artifact.sha256 }}</code></p>
+          {% else %}<p class="muted">{{ artifact.name }} · rechazado y revertido</p>{% endif %}
+        {% endfor %}
+        {% if workflow.plan_approved and item.estado in ['pendiente', 'rechazado'] %}
+        <div class="row">
+          <button type="button" data-post="/api/edges/{{ edge.id }}/deliverables/{{ item.id }}/execute">Ejecutar {{ item.agente_asignado or 'Shiro' }}</button>
+          <form class="artifact-upload-form row" data-deliverable="{{ item.id }}"><label>Adjuntar archivo<input type="file" name="file" required></label><button type="submit" class="secondary">Enviar a revisión</button></form>
+        </div>
+        {% endif %}
+        {% if item.estado == 'entregado' %}
+        <form class="deliverable-decision-form" data-deliverable="{{ item.id }}">
+          <label>Observaciones de Tet<textarea name="observations" placeholder="Requerido si solicitas modificaciones o rechazas."></textarea></label>
+          <div class="row"><button type="button" data-verdict="approve">Aprobar</button><button type="button" class="secondary" data-verdict="modify">Solicitar cambios</button><button type="button" class="danger" data-verdict="reject">Rechazar y revertir</button></div>
+        </form>
+        {% endif %}
+        {% if item.audit %}<p>Auditoría: {{ 'Alineado' if item.audit.aligned else 'Requiere revisión' }}{% for note in item.audit.notes %}<br>{{ note }}{% endfor %}</p>{% endif %}
+      </article>
+    {% else %}<p class="muted">El plan todavía no define entregables.</p>{% endfor %}
+  </section>
+
+  <section class="section">
+    <h3>Cierre de Tet</h3>
+    {% if workflow.final.observations %}<p>{{ workflow.final.observations }}</p>{% endif %}
+    {% if workflow.final.status == 'approved' %}<p class="badge badge-green">Edge aprobado y completo</p>
+    {% elif workflow.plan_approved and not pending_final %}
+      <form id="final-decision-form" class="panel">
+        <label>Observaciones<textarea name="observations" placeholder="Opcional para cierre; requerido para solicitar cambios o rechazar."></textarea></label>
+        <div class="row"><button type="button" data-verdict="approve">Aprobar cierre</button><button type="button" class="secondary" data-verdict="modify">Solicitar revisión</button><button type="button" class="danger" data-verdict="reject">Rechazar edge</button></div>
+      </form>
+    {% else %}<p class="muted">El cierre se habilita cuando todos los entregables estén aprobados por Tet.</p>{% endif %}
+  </section>
+
+  <details class="section"><summary><strong>Bitácora de auditoría</strong></summary>
+    <ol>{% for entry in log_entries[-50:] %}<li><time>{{ entry.timestamp }}</time> · {{ entry.agente or '—' }} · {{ entry.evento }}{% if entry.detalles %}<pre>{{ entry.detalles|tojson(indent=2) }}</pre>{% endif %}</li>{% else %}<li>Sin eventos.</li>{% endfor %}</ol>
+  </details>
 {% endif %}
+<script>
+const statusLine = document.getElementById('global-status');
+async function postJson(url, body={}) {
+  const response = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.detail || 'La operación falló.');
+  return result;
+}
+async function runAction(action) {
+  statusLine.textContent = 'Procesando…';
+  try { await postJson(action.dataset.post, JSON.parse(action.dataset.body || '{}')); location.reload(); }
+  catch (error) { statusLine.textContent = error.message; }
+}
+document.querySelectorAll('[data-post]').forEach(button => button.addEventListener('click', () => runAction(button)));
+const requestForm = document.getElementById('edge-request-form');
+if (requestForm) requestForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try { await postJson(`/api/edges/{{ edge.id }}/requests`, Object.fromEntries(new FormData(requestForm))); location.reload(); }
+  catch (error) { statusLine.textContent = error.message; }
+});
+const planForm = document.getElementById('plan-approval-form');
+if (planForm) planForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    const body = {
+      objetivos: document.getElementById('plan-objectives').value.split('\n').map(x=>x.trim()).filter(Boolean),
+      metas: document.getElementById('plan-goals').value.split('\n').map(x=>x.trim()).filter(Boolean),
+      entregables: JSON.parse(document.getElementById('plan-deliverables').value),
+    };
+    await postJson(`/api/edges/{{ edge.id }}/plan/approve`, body); location.reload();
+  } catch (error) { statusLine.textContent = error.message; }
+});
+const searchForm = document.getElementById('bibliography-search-form');
+if (searchForm) searchForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try { await postJson(`/api/edges/{{ edge.id }}/bibliography/search`, Object.fromEntries(new FormData(searchForm))); location.reload(); }
+  catch (error) { statusLine.textContent = error.message; }
+});
+const doiForm = document.getElementById('bibliography-doi-form');
+if (doiForm) doiForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  try { await postJson(`/api/edges/{{ edge.id }}/bibliography/verify`, Object.fromEntries(new FormData(doiForm))); location.reload(); }
+  catch (error) { statusLine.textContent = error.message; }
+});
+document.querySelectorAll('.artifact-upload-form').forEach(form => form.addEventListener('submit', async event => {
+  event.preventDefault();
+  try {
+    const response = await fetch(`/api/edges/{{ edge.id }}/deliverables/${form.dataset.deliverable}/artifacts`, {method:'POST', body:new FormData(form)});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || 'No se pudo cargar el archivo.');
+    location.reload();
+  } catch (error) { statusLine.textContent = error.message; }
+}));
+document.querySelectorAll('.deliverable-decision-form').forEach(form => form.querySelectorAll('[data-verdict]').forEach(button => button.addEventListener('click', async () => {
+  const body = {verdict:button.dataset.verdict, observations:form.elements.observations.value};
+  try { await postJson(`/api/edges/{{ edge.id }}/deliverables/${form.dataset.deliverable}/decision`, body); location.reload(); }
+  catch (error) { statusLine.textContent = error.message; }
+})));
+const finalForm = document.getElementById('final-decision-form');
+if (finalForm) finalForm.querySelectorAll('[data-verdict]').forEach(button => button.addEventListener('click', async () => {
+  const body = {verdict:button.dataset.verdict, observations:finalForm.elements.observations.value};
+  try { await postJson(`/api/edges/{{ edge.id }}/final/decision`, body); location.reload(); }
+  catch (error) { statusLine.textContent = error.message; }
+}));
+</script>
 {% endblock %}

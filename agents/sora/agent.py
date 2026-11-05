@@ -16,8 +16,14 @@ class SoraStrategist(Agent):
     # ------------------------------------------------------------------ #
     # Planificación
     # ------------------------------------------------------------------ #
-    def plan_edge(self, edge_id: str, seed_prompt: str) -> Dict[str, Any]:
+    def plan_edge(
+        self,
+        edge_id: str,
+        seed_prompt: str,
+        bibliography: List[Dict[str, Any]] | None = None,
+    ) -> Dict[str, Any]:
         """Descompone la idea semilla en objetivos, metas y entregables."""
+        bibliography = bibliography or []
         self.register("plan_started", {"edge_id": edge_id, "seed": seed_prompt[:80]})
 
         objetivos = [
@@ -29,6 +35,8 @@ class SoraStrategist(Agent):
             "Evidencia bibliográfica verificada (DOI)",
             "Código y cálculos reproducibles",
         ]
+        if bibliography:
+            metas.append(f"Integrar {len(bibliography)} referencias aprobadas por Tet")
         entregables = [
             {"id": "E1", "descripcion": "Plan y contrato del edge",
              "agente_asignado": "Sora", "estado": "pendiente"},
@@ -44,6 +52,7 @@ class SoraStrategist(Agent):
             "objetivos": objetivos,
             "metas": metas,
             "entregables": entregables,
+            "bibliography": bibliography,
             "avance": 0,
             "prioridad": self._priority_for(entregables),
         }

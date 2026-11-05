@@ -33,6 +33,60 @@ class JibrilScientific(Agent):
             return {"doi": doi, "error": result["reason"]}
         return result["metadata"]
 
+    def verify_reference(self, doi: str) -> Dict[str, Any]:
+        """Verifica un DOI y devuelve metadatos uniformes con la fuente."""
+        result = verify_doi(doi, self.crossref, self.openalex, self.orcid)
+        if not result["ok"]:
+            return result
+        return {
+            "ok": True,
+            "source": result["source"],
+            "metadata": self._normalize_metadata(doi, result["metadata"]),
+        }
+
+    def search_references(self, query: str, limit: int = 8) -> List[Dict[str, Any]]:
+        """Busca propuestas en Crossref; Tet debe verificarlas y autorizarlas."""
+        suggestions = []
+        for item in self.crossref.search(query, limit=max(1, min(limit, 20))):
+            doi = item.get("DOI", "")
+            result = verify_doi(doi, self.crossref, self.openalex, self.orcid)
+            if result["ok"]:
+                suggestions.append(
+                    self._normalize_metadata(doi, result["metadata"], result["source"])
+                )
+        return suggestions
+
+    @staticmethod
+    def _normalize_metadata(
+        doi: str, metadata: Dict[str, Any], source: str = ""
+    ) -> Dict[str, Any]:
+        title = metadata.get("title", "")
+        if isinstance(title, list):
+            title = title[0] if title else ""
+        authors = metadata.get("author", [])
+        if not authors and metadata.get("authorships"):
+            authors = [entry.get("author", {}) for entry in metadata["authorships"]]
+        normalized_authors = [
+            " ".join(filter(None, (author.get("given"), author.get("family"))))
+            or author.get("display_name", "")
+            for author in authors
+        ]
+        published = metadata.get("published", {}).get("date-parts", [[]])
+        year = published[0][0] if published and published[0] else ""
+        journal = metadata.get("container-title", "")
+        if isinstance(journal, list):
+            journal = journal[0] if journal else ""
+        if not journal:
+            journal = metadata.get("host_venue", {}).get("display_name", "")
+        return {
+            "doi": doi.lower(),
+            "title": title or metadata.get("display_name", ""),
+            "authors": [author for author in normalized_authors if author],
+            "year": year or metadata.get("publication_year", ""),
+            "journal": journal,
+            "source": source,
+        }
+
     def fetch_many(self, dois: List[str]) -> Dict[str, List[Dict[str, Any]]]:
         """Verifica una lista de DOIs y separa aceptados de rechazados."""
         ok: List[Dict[str, Any]] = []

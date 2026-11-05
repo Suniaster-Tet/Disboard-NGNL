@@ -21,9 +21,14 @@ def hitl_node(state: OverallState) -> OverallState:
         state["current_step"] = "fin"
         state["next_agent"] = "fin"
     elif decision == "rollback":
-        state["current_step"] = "supervisor"
-        state["next_agent"] = "supervisor"
+        state["current_step"] = "rechazado"
+        state["next_agent"] = "fin"
     else:
+        for deliverable in state.get("entregables", []):
+            if deliverable.get("agente_asignado") == "Shiro":
+                deliverable["estado"] = "pendiente"
+                deliverable["observaciones"] = state["tet_feedback"]
+                break
         state["current_step"] = "shiro"
         state["next_agent"] = "shiro"
     return state

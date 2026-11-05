@@ -2,20 +2,48 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ app_name }}</title>
   <style>
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; background: #f7f7f9; }
-    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-    nav a { margin-right: 1rem; text-decoration: none; color: #9b2247; font-weight: bold; }
-    table { width: 100%; border-collapse: collapse; background: white; }
-    th, td { padding: .5rem; border-bottom: 1px solid #eee; text-align: left; }
-    .badge { padding: .1rem .4rem; border-radius: .25rem; color: white; font-size: .8rem; }
-    .badge-red { background: #b91c1c; }
-    .badge-orange { background: #ea580c; }
-    .badge-yellow { background: #ca8a04; }
-    .badge-green { background: #15803d; }
-    .progress { background: #e5e7eb; height: 8px; border-radius: 4px; overflow: hidden; }
-    .progress-fill { background: #1e5b4f; height: 100%; }
+    :root { color-scheme: light; --ink: #202a27; --muted: #64716d; --line: #d7dfdb; --paper: #fff; --canvas: #edf2ef; --green: #17684d; --green-soft: #dceee5; --red: #a63b37; --amber: #926414; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font: 15px/1.5 system-ui, sans-serif; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: .8rem clamp(1rem, 3vw, 2.5rem); background: #17231f; color: #f5faf7; }
+    header h1 { margin: 0; font: 600 1.3rem/1.2 Georgia, serif; }
+    nav { display: flex; flex-wrap: wrap; gap: .35rem; }
+    nav a { padding: .45rem .7rem; color: #dceee5; text-decoration: none; border-radius: 4px; }
+    nav a:hover, nav a:focus-visible { background: #30453c; color: #fff; }
+    main { width: min(1200px, 100%); margin: 0 auto; padding: clamp(1rem, 3vw, 2rem); }
+    h2, h3, h4 { line-height: 1.25; }
+    h2 { margin: 0 0 1rem; font: 600 1.65rem Georgia, serif; }
+    h3 { margin: 0 0 .75rem; font-size: 1.1rem; }
+    h4 { margin: 1rem 0 .4rem; }
+    p { margin: .35rem 0 .8rem; }
+    .section { margin: 1.25rem 0 2rem; padding: 1.2rem 0; border-top: 1px solid var(--line); }
+    .panel { padding: 1rem; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; }
+    .row { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; }
+    label { display: block; margin: .5rem 0; font-weight: 600; }
+    input, select, textarea { display: block; width: 100%; margin-top: .25rem; padding: .65rem .7rem; border: 1px solid #b9c6c0; border-radius: 4px; background: #fff; color: var(--ink); font: inherit; }
+    textarea { min-height: 7rem; resize: vertical; }
+    button, .button { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 40px; padding: .5rem .85rem; border: 1px solid var(--green); border-radius: 4px; background: var(--green); color: #fff; font: 600 .92rem system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    button.secondary, .button.secondary { background: #fff; color: var(--green); }
+    button.danger { background: var(--red); border-color: var(--red); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; background: var(--paper); }
+    th, td { padding: .7rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; }
+    a { color: var(--green); }
+    .muted, .meta { color: var(--muted); }
+    .badge { display: inline-block; padding: .15rem .45rem; border-radius: 3px; background: #e6ece9; color: var(--ink); font-size: .8rem; }
+    .badge-red { background: #f7dfdd; color: #762d2a; }
+    .badge-orange, .badge-yellow { background: #f4e9c9; color: #68460b; }
+    .badge-green { background: var(--green-soft); color: #14513c; }
+    .progress { width: min(240px, 100%); height: 8px; overflow: hidden; border-radius: 4px; background: #dce4df; }
+    .progress-fill { height: 100%; background: var(--green); }
+    .status { min-height: 1.5rem; color: var(--muted); }
+    pre, code { white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 680px) { header { align-items: flex-start; flex-direction: column; gap: .6rem; } main { padding: 1rem; } table { display: block; overflow-x: auto; } }
   </style>
 </head>
 <body>
@@ -29,5 +57,6 @@
     </nav>
   </header>
   <main>{% block content %}{% endblock %}</main>
+  <div id="global-status" class="status" role="status" aria-live="polite" style="position:fixed;bottom:0;left:0;right:0;padding:0 .8rem;background:#fff"></div>
 </body>
 </html>

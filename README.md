@@ -2,7 +2,7 @@
 
 Bienvenido a **Disboard-NGNL**, un ecosistema local-first para coordinar proyectos de software, modelado científico y planificación mediante agentes. **Tet** dirige el trabajo y conserva la aprobación humana (**Human-in-the-loop, HITL**). El sistema está diseñado para ejecutarse en un equipo personal que actúa como núcleo, y ser consultado desde otros dispositivos (tablet, laptop secundaria) mediante conexiones seguras y privadas.
 
-Las propiedades de **auditoría, reproducibilidad, compatibilidad multiplataforma, modularidad y protección de datos** son requisitos de arquitectura. **Ningún dato sensible sale del equipo núcleo sin filtrado explícito.**
+Las propiedades de **auditoría, reproducibilidad, compatibilidad multiplataforma, modularidad y protección de datos** son objetivos de arquitectura. Las solicitudes se guardan localmente; las búsquedas bibliográficas envían a Crossref la consulta filtrada y los DOI solicitados. Los logs son auditables desde la aplicación, pero no son inmutables frente a un administrador del host.
 
 > **Nota de nomenclatura:** el contenido de este README está en español. Los nombres de archivos, carpetas y módulos siguen la convención en inglés para homologar con la notación común de repositorios.
 >
@@ -32,11 +32,11 @@ El repositorio opera bajo un estricto control de **bajo consumo de tokens** para
 
 ### 1.4 Núcleo de Ejecución Técnico y Científico
 
-- **Sora (El Estratega / Project Manager):** Propone el proyecto a partir de la idea semilla: objetivos, metas, entregables y diagrama de seguimiento (con **% de avance** y **nivel de prioridad**). Con la estrategia aprobada, dirige las tareas al resto de agentes.
+- **Sora (El Estratega / Project Manager):** El workflow actual propone una plantilla determinista de objetivos, metas y entregables a partir de la semilla. Tet la puede modificar y firmar; la generación general con LLM no está integrada en este flujo.
   - **Chlammy Zell (Subagente de Sora / Auditora):** Revisa lo que entregan los demás, confronta cada entregable con el plan y reporta a Sora para que valide y presente a Tet.
-- **Shiro (El Analista Lógico / Código y Precisión):** Escribe código, realiza cálculos y entrega los artefactos del plan. Autorizado para usar la API de Wolfram (si hay clave) para cálculos simbólicos. **Si no hay clave de Wolfram, Suniaster asigna a Shiro un proveedor alternativo capaz de cálculo simbólico o simulación de código Wolfram; Shiro declara explícitamente qué proveedor usó y Tet valida el resultado antes de integrarlo.**
+- **Shiro (El Analista Lógico / Código y Precisión):** El workflow actual produce un scaffold TDD de ejemplo; no ejecuta automáticamente el código ni sus tests, y no llama a Wolfram/LLM desde esta pantalla. Los resultados requieren revisión de Tet.
   - **Izuna (Subagente de Shiro / HPC e Ingeniería de Datos):** Mantiene la base de datos tensorial (ref. arXiv:2211.02753v1), provee recursos a Shiro y valida bases para Jibril.
-- **Jibril (Subagente de Sora / Descubrimiento Científico):** Búsqueda bibliográfica en **Crossref, OpenAlex y ORCID**. Cada referencia debe tener un **DOI verificado** en al menos una fuente. Enriquece el reservorio y provee información a Sora y Shiro.
+- **Jibril (Subagente de Sora / Descubrimiento Científico):** Busca sugerencias en Crossref y verifica DOIs consultando Crossref, OpenAlex y ORCID. Tet autoriza cada referencia antes de incorporarla al plan. La búsqueda por tema disponible en el dashboard usa Crossref.
 
 > **Rate limits (Jibril):** Crossref 10 req/s (polite con `mailto`); OpenAlex 10 req/s (sin key) o 30 req/s (con key); ORCID ~8 req/s.
 
@@ -52,7 +52,7 @@ La salida depende del edge: informe de avance, aplicación con pruebas o manuscr
 
 ## 2. Diagrama de Flujo e Interacción del Sistema
 
-El repositorio tiene dos superficies de agentes: la **consola de proyectos** (con revisión HITL de archivos) y el **grafo local de LangGraph** usado por la web (responde con borrador; no escribe archivos). Los diagramas muestran ambos flujos reales.
+El repositorio ofrece dos superficies de trabajo: la **consola de proyectos** y el **dashboard web**. Ambas persisten decisiones y artefactos por edge y requieren el veredicto HITL de Tet antes de cerrar entregables.
 
 ### 2.1 Flujo de Consola (HITL con archivos)
 
@@ -84,33 +84,70 @@ flowchart TD
     UPDATE_STATE --> G["Actualización de datos, bibliografía<br/>y estatus de proyectos"]
 ```
 
-### 2.2 Grafo Web Local de LangGraph
+### 2.2 Flujo Web del Dashboard
 
-El grafo web opera en modo **borrador sin escritura de archivos**: recibe la solicitud, ejecuta el ciclo de agentes en memoria y devuelve una respuesta. La persistencia y la aprobación HITL se gestionan mediante `interrupt()` de LangGraph, que pausa el grafo y espera la decisión de Tet. El estado del hilo se conserva con un **checkpointer** para permitir reanudación y auditoría; sin checkpointer, el resume falla silenciosamente. El adaptador `web/checkpointer.py` delega en `core/checkpointer.py`.
+Tet puede iniciar un edge con una idea libre o enviar una solicitud directa a un edge existente. Sora prepara un plan que Tet puede editar y firmar. Jibril busca en Crossref o verifica un DOI proporcionado por Tet; ninguna referencia pasa al plan hasta que Tet la autoriza. Los entregables pueden ejecutarse con el agente asignado o cargarse desde el equipo. Cada archivo se registra con hash y log; Tet puede aprobarlo, pedir cambios o rechazarlo con rollback. El estado del workflow vive en `workflow.json` y `log.jsonl`; los hilos del grafo LangGraph se guardan por separado en SQLite.
 
 ```mermaid
 flowchart TD
-    subgraph WEB["Grafo Web LangGraph - sin escritura de archivos"]
-        IN["Entrada: solicitud de Tet<br/>o edge activo"] --> SUPERVISOR["Sora: nodo supervisor<br/>plan de entregables"]
-        SUPERVISOR --> ROUTE{"Enrutar por<br/>entregable pendiente"}
-        ROUTE -->|bibliografia| JIBRIL["Jibril: busqueda<br/>Crossref/OpenAlex/ORCID"]
-        ROUTE -->|ejecucion tecnica| SHIRO["Shiro: codigo/calculos<br/>+ Izuna para datos"]
-        ROUTE -->|auditoria| CHLAMMY["Chlammy: confrontar<br/>vs. plan"]
-        JIBRIL --> SUPERVISOR
-        SHIRO --> SUPERVISOR
-        CHLAMMY --> SUPERVISOR
-        SUPERVISOR --> DRAFT["Borrador consolidado<br/>en memoria"]
-    end
-
-    DRAFT --> HITL_WEB{"HITL: Tet aprueba<br/>en navegador"}
-    HITL_WEB -->|aprobar| RESP["Respuesta final<br/>sin persistencia de archivos"]
-    HITL_WEB -->|modificar o rechazar| OBS["Observaciones<br/>reingresar a Sora"]
-    OBS --> SUPERVISOR
-    HITL_WEB -.->|interrupt / resume| CKPT[("Checkpointer<br/>estado del hilo")]
-    CKPT -.-> HITL_WEB
+   T["Tet: solicitud libre"] --> EDGE["Crear o continuar edge<br/>guardar solicitud y log"]
+   EDGE --> SORA["Sora propone plan<br/>con referencias autorizadas"]
+   SORA --> PLAN{"Tet revisa el plan"}
+   PLAN -->|modificar| SORA
+   PLAN -->|aprobar y firmar| ROUTE{"Entregable pendiente"}
+   EDGE --> JSEARCH["Jibril busca o verifica DOI"]
+   JSEARCH --> BIBHITL{"Tet autoriza referencia"}
+   BIBHITL -->|sí| BIB["Bibliografía aprobada"]
+   BIB --> SORA
+   BIBHITL -->|no| LOGREJ["Registrar rechazo"]
+   ROUTE -->|bibliografía| JIBRIL["Jibril exporta referencias"]
+   ROUTE -->|ejecución técnica| SHIRO["Shiro genera archivos"]
+   ROUTE -->|auditoría| CHLAMMY["Chlammy audita alineación"]
+   ROUTE -->|carga manual| UPLOAD["Tet adjunta artefacto"]
+   JIBRIL --> ARTIFACT["Registrar archivo, hash y log"]
+   SHIRO --> ARTIFACT
+   CHLAMMY --> ARTIFACT
+   UPLOAD --> ARTIFACT
+   ARTIFACT --> HITL{"Tet revisa entrega"}
+   HITL -->|aprobar| NEXT["Actualizar avance y Elkia"]
+   HITL -->|modificar| OBS["Guardar observaciones<br/>dejar pendiente"]
+   HITL -->|rechazar| ROLLBACK["Eliminar artefacto<br/>y registrar rollback"]
+   OBS --> ROUTE
+   ROLLBACK --> ROUTE
+   NEXT --> CLOSE{"¿Todo aprobado?"}
+   CLOSE -->|no| ROUTE
+   CLOSE -->|sí| FINAL["Tet firma el cierre"]
 ```
 
-> **Diferencia clave:** el flujo de consola escribe archivos y permite rollback; el grafo web solo devuelve borradores y delega la persistencia al checkpointer de LangGraph para trazabilidad. El patrón supervisor (Sora enruta a Jibril/Shiro/Chlammy y estos devuelven el control) es el recomendado para sistemas con más de 3 agentes.
+> **Trazabilidad:** los cambios del dashboard se guardan en el edge; el checkpointer SQLite conserva adicionalmente los hilos del grafo LangGraph.
+
+**Consola y dashboard son dos interfaces del mismo workflow por edge.** Ambos usan `workflow.json`, `contract.md`, `artifacts/` y `log.jsonl`; puedes aprobar el plan desde una interfaz y continuar los entregables desde la otra. Usa `disboard work <edge_id>` para operar en consola.
+
+### 2.3 Grafo Web Local de LangGraph
+
+El grafo LangGraph es el motor supervisor reanudable (`POST /api/graph/runs` y `POST /api/verdict`) y se mantiene separado del workflow persistente descrito en §2.2. Usa `interrupt()` para pausar en HITL y `SqliteSaver` para guardar el estado del hilo. El workflow del dashboard se consulta mediante `GET /api/runs?project=<edge_id>`.
+
+```mermaid
+flowchart TD
+   subgraph WEB["Grafo Web Local de LangGraph"]
+      IN["Entrada: solicitud de Tet<br/>o edge activo"] --> SUPERVISOR["Sora: supervisor<br/>y plan de entregables"]
+      SUPERVISOR --> ROUTE{"Enrutar por<br/>entregable pendiente"}
+      ROUTE -->|bibliografía| JIBRIL["Jibril: verificar DOI<br/>Crossref/OpenAlex/ORCID"]
+      ROUTE -->|ejecución técnica| SHIRO["Shiro: código y cálculos<br/>Izuna para datos"]
+      ROUTE -->|auditoría| CHLAMMY["Chlammy: revisar<br/>alineación"]
+      JIBRIL --> SUPERVISOR
+      SHIRO --> SUPERVISOR
+      CHLAMMY --> SUPERVISOR
+      SUPERVISOR --> DRAFT["Consolidar estado<br/>del hilo"]
+   end
+
+   DRAFT --> HITL{"HITL: veredicto de Tet"}
+   HITL -->|aprobar| RESP["Finalizar ejecución"]
+   HITL -->|modificar| OBS["Guardar observaciones"]
+   OBS --> SUPERVISOR
+   HITL -.->|interrupt / resume| CKPT[("SqliteSaver<br/>estado persistente del hilo")]
+   CKPT -.-> HITL
+```
 
 ---
 
@@ -128,26 +165,26 @@ flowchart TD
 
 ## 4. Tablero Web Local y Privacidad
 
-> **Nota:** Esta sección es preliminar. Se puntualizará una vez que el tablero web esté implementado.
-
 ### Indicaciones elementales de uso
 
 1. **Requisitos previos:** Python 3.11+ y las dependencias del repositorio (`pip install -e ".[dev]"`). El backend se ejecuta en el equipo núcleo.
 2. **Arranque del servidor local:** `make web` o `uvicorn web.server:app --host 127.0.0.1 --port 8000`. Por defecto escucha en localhost.
 3. **Acceso desde el navegador:** abrir `http://localhost:8000` desde el navegador del equipo núcleo o de un cliente autorizado. No se requiere instalar nada en el cliente.
-4. **Flujo de trabajo:** el grafo web de LangGraph recibe la solicitud, ejecuta el ciclo de agentes en memoria y presenta un borrador para aprobación HITL. La aprobación o rechazo se gestiona mediante `interrupt/resume`.
-5. **Limitaciones actuales:** El grafo web **no escribe archivos**; la persistencia de entregables se realiza desde la consola de proyectos.
+4. **Flujo de trabajo:** envía una solicitud libre desde el inicio, revisa el plan de Sora, autoriza referencias de Jibril, ejecuta o adjunta entregables y decide cada veredicto HITL.
+5. **Persistencia:** solicitudes, workflow, contrato, artefactos y bitácora quedan en el edge local; cada aprobación requiere `TET_SIGNING_KEY`.
 
 ## 4.2 Dashboard
 
-El servidor web también expone un dashboard en la raíz (`/`) que actúa como centro de operaciones de Tet. El dashboard se implementa en `web/dashboard/` (vistas y componentes) y `web/templates/` (plantillas Jinja2). Muestra:
+El servidor web también expone un dashboard en la raíz (`/`) que actúa como centro de operaciones de Tet. El dashboard se implementa en `web/dashboard/views.py` y `web/templates/` (plantillas Jinja2). Muestra:
 
-- **Vista general de edges**: tabla/tarjetas con % de avance y prioridad (matriz de Eisenhower).
-- **Agenda y pendientes** administrados por Fiel Nirvalen.
-- **Detalle de cada edge**: contrato, log de eventos, artefactos generados.
-- **Formulario para iniciar un nuevo edge** (idea semilla).
-- **Visor de artefactos** con validación de hash SHA-256.
-- **Selector de plantillas** para generar preprints, informes o slides con `tools/document_generator.py`.
+- **Solicitud directa**: crea un edge desde texto libre o continúa un edge existente.
+- **Plan HITL**: revisa, modifica y firma objetivos, metas y asignación de agentes.
+- **Bibliografía**: búsqueda en Crossref o verificación DOI en Crossref/OpenAlex/ORCID; Tet autoriza cada referencia antes de usarla.
+- **Entregables**: ejecutar Jibril/Shiro/Chlammy o adjuntar un archivo; Tet aprueba, solicita cambios o rechaza con rollback.
+- **Trazabilidad**: avance, prioridad, contrato, aprobaciones firmadas, SHA-256 y bitácora por edge.
+- **Agenda**: planes, referencias y entregables que esperan decisión de Tet.
+
+**Límites actuales:** el scaffold de Sora/Shiro es determinista, la auditoría de Chlammy es básica y el dashboard no ejecuta código de Shiro. La firma HMAC protege veredictos de Tet; no cifra los datos en disco ni vuelve los logs inmutables frente al administrador del equipo.
 
 ### Endpoints principales del dashboard
 
@@ -160,13 +197,16 @@ El servidor web también expone un dashboard en la raíz (`/`) que actúa como c
 | POST | `/edges/new` | Crear edge |
 | GET | `/agenda` | Agenda y pendientes |
 | GET | `/artifacts/{edge_id}/{name}` | Servir artefacto (con validación de hash) |
-| GET | `/api/status`, `/api/projects`, `/api/artifacts`, `/api/bibliography`, `/api/runs`, `/api/models` | Endpoints JSON para consumo programático |
+| POST | `/api/requests` | Solicitud directa nueva o sobre edge existente |
+| GET/POST | `/api/edges/{id}/workflow`, `/plan`, `/bibliography/*`, `/deliverables/*`, `/final/decision` | Operación HITL del edge |
+| POST | `/api/graph/runs`, `/api/verdict` | Iniciar y reanudar el grafo LangGraph auxiliar |
+| GET | `/api/status`, `/api/projects`, `/api/artifacts`, `/api/bibliography`, `/api/runs`, `/api/models` | Consulta JSON |
 
 ### Privacidad
 
-- **Datos en prompts externos:** Fiel Nirvalen filtra datos sensibles antes de cualquier consulta a APIs externas (Jibril, Wolfram, proveedores de IA).
+- **Datos en consultas externas:** la búsqueda libre del dashboard aplica `privacy.filters` antes de consultar Crossref. Las solicitudes permanecen en el edge local; revisa la política antes de habilitar otras integraciones.
 - **Almacenamiento local:** logs, bases de datos tensoriales (Izuna) y artefactos generados residen en el equipo núcleo. No se envían a servicios externos salvo consultas estrictamente necesarias (DOIs, cálculos simbólicos, inferencia de IA).
-- **Checkpointer:** el grafo web conserva sus hilos en SQLite (`logs/web_graph_checkpoints.sqlite`) mediante el saver oficial de LangGraph.
+- **Checkpointer:** el grafo web conserva sus hilos en SQLite (`logs/web_graph_checkpoints.sqlite`) mediante el saver oficial de LangGraph. El workflow del dashboard se persiste en `edges/<id>/workflow.json` y su auditoría en `log.jsonl`.
 - **Documentación de privacidad:** `docs/privacy.md` describe la postura arquitectónica; `privacy/prompts_policy.md` contiene la política operativa que aplica Fiel Nirvalen.
 - **Acceso remoto:** para consultar desde tablet u otro equipo fuera de la red local, ver `docs/manual.md` (Cloudflare Tunnel con `homehost` o SSH al Codespace). Nunca exponer el servidor sin TLS ni autenticación.
 
@@ -245,7 +285,7 @@ Disboard-NGNL/
 │   ├── state.py
 │   ├── dashboard.py
 │   └── cli.py
-│
+
 ├── suniaster/
 │   ├── __init__.py
 │   ├── config.yaml
@@ -309,6 +349,8 @@ Disboard-NGNL/
 ├── web/
 │   ├── __init__.py
 │   ├── server.py
+│   ├── security.py
+│   ├── workflow.py
 │   ├── graph.py
 │   ├── checkpointer.py
 │   ├── nodes/
@@ -320,13 +362,11 @@ Disboard-NGNL/
 │   │   └── hitl_node.py
 │   ├── dashboard/
 │   │   ├── __init__.py
-│   │   ├── views.py
-│   │   └── components.py
+│   │   └── views.py
 │   └── templates/
 │       ├── base.html
 │       ├── index.html
-│       ├── edge_detail.html
-│       └── artifacts.html
+│       └── edge_detail.html
 │
 ├── privacy/
 │   ├── __init__.py
@@ -400,6 +440,8 @@ Disboard-NGNL/
     ├── test_plugins.py
     ├── test_suniaster.py
     ├── test_web_graph.py
+   ├── test_web_security.py
+   ├── test_web_workflow.py
     └── test_agents/
         ├── __init__.py
         ├── test_sora.py
