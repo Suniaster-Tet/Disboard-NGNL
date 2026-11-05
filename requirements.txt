@@ -1,46 +1,82 @@
-### Orquestación multiagente
-langgraph
-langchain-core
-langgraph-checkpoint-sqlite
-fastapi
-pydantic
-uvicorn[standard]
-python-multipart
-pypdf
+# =============================================================================
+# Disboard-NGNL — dependencias de runtime
+# =============================================================================
 
-### Clientes de modelos de IA
-groq
-google-genai
-anthropic
-openai
+# --- Orquestación ---
+langgraph>=0.2.0
+langchain-core>=0.3.0
 
-### Consultas bibliográficas y red
-requests
-python-dotenv
+# --- Checkpointer durable ---
+langgraph-checkpoint-postgres>=2.0.0
+psycopg[binary,pool]>=3.1.0
 
-### Datos, hojas de cálculo y optimización tabular
-pandas
-numpy
-numpy-financial
-openpyxl
-dask[complete]
-polars
+# --- Web local ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
 
-### Cómputo simbólico, científico y simulación
-sympy
-scipy
-simpy
+# --- Datos y documentos ---
+polars>=1.0.0
+pandas>=2.0.0
+openpyxl>=3.1.0
+jinja2>=3.1.0
+python-docx>=1.0.0
+pypdf>=4.0.0
+pyyaml>=6.0
 
-### IA avanzada y modelos locales
-torch
-transformers
-accelerate
+# --- Reportería ---
+pylatex>=1.4.0
+reportlab>=4.0.0
 
-### Generación y manipulación de documentos y PDFs
-python-docx
-python-pptx
-reportlab
-Jinja2
+# --- Motor DuckDB (Izuna) ---
+duckdb>=1.0.0
 
-### Consola / interfaz HITL
-rich
+# --- HTTP y APIs externas ---
+httpx>=0.27.0
+requests>=2.31.0
+
+# --- Seguridad / HITL ---
+cryptography>=42.0.0
+
+# =============================================================================
+# Suniaster — adaptadores LangChain por proveedor
+# =============================================================================
+langchain-groq>=0.2.0
+langchain-google-genai>=2.0.0
+langchain-openai>=0.2.0
+langchain-anthropic>=0.2.0
+langchain-deepseek>=0.1.0
+langchain-ollama>=0.2.0
+
+# =============================================================================
+# SDKs nativos de proveedores (uso directo por agentes o streaming crudo)
+# Suniaster los arrastra vía LangChain, pero se fijan explícitamente para
+# reproducibilidad y para uso puntual de Shiro.
+# =============================================================================
+# --- Free tier (uso sin pago) ---
+google-genai>=1.0.0      # Google AI Studio / Gemini
+groq>=0.11.0             # Groq
+
+# --- Pago (Suniaster solo los usa si Tet lo autoriza) ---
+openai>=1.50.0
+anthropic>=0.40.0
+# DeepSeek usa el SDK de OpenAI con base_url propia; no requiere paquete extra.
+
+# --- Antigravity (herramienta opcional para Shiro; no exclusiva) ---
+google-antigravity>=0.1.21
+
+# --- Wolfram (Shiro; pendiente de WOLFRAM_API_KEY) ---
+# El SDK se instala, pero su uso está condicionado a la key.
+# Si no hay key, Shiro debe declarar incertidumbre y no inventar cálculos.
+wolframalpha>=5.1.0
+
+# =============================================================================
+# STT/TTS local (opcional; instalar con pip install -e ".[speech]")
+# =============================================================================
+# SpeechRecognition>=3.10.0
+# pyttsx3>=2.90
+
+# =============================================================================
+# Extra opcional: motor tensorial avanzado (no obligatorio)
+# =============================================================================
+# torch>=2.0.0
+# tensornetwork>=0.4.0
