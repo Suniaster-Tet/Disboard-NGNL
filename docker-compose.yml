@@ -1,0 +1,106 @@
+# =============================================================================
+# Disboard-NGNL — orquestación local
+#   - devcontainer: entorno científico (Elkia)
+#   - web: servidor LangGraph + dashboard
+#   - postgres: checkpointer durable
+#   - cloudflared: túnel opcional para acceso remoto (perfil "tunnel")
+# =============================================================================
+services:
+  devcontainer:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    image: disboard-ngnl:dev
+    container_name: disboard-dev
+    working_dir: /workspaces/Disboard-NGNL
+    volumes:
+      - .:/workspaces/Disboard-NGNL:cached
+    env_file:
+      - .env
+    environment:
+      - CHECKPOINTER_BACKEND=${CHECKPOINTER_BACKEND:-postgres}
+      - POSTGRES_URI=postgresql://postgres:postgres@postgres:5432/disboard
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sleep infinity
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "python --version && latexmk --version >/dev/null"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - disboard
+
+  web:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    image: disboard-ngnl:dev
+    container_name: disboard-web
+    working_dir: /workspaces/Disboard-NGNL
+    volumes:
+      - .:/workspaces/Disboard-NGNL:cached
+    env_file:
+      - .env
+    environment:
+      - CHECKPOINTER_BACKEND=${CHECKPOINTER_BACKEND:-postgres}
+      - POSTGRES_URI=postgresql://postgres:postgres@postgres:5432/disboard
+      - WEB_HOST=0.0.0.0
+      - WEB_PORT=8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn web.server:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "bash", "-lc", "curl -fsS http://localhost:8000/api/status >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - disboard
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: disboard-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: disboard
+    volumes:
+      - disboard_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d disboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+    networks:
+      - disboard
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: disboard-tunnel
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - tunnel
+    networks:
+      - disboard
+
+volumes:
+  disboard_pgdata:
+
+networks:
+  disboard:
+    driver: bridge

@@ -1,0 +1,125 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "disboard-ngnl"
+version = "1.0.0"
+description = "Ecosistema multiagente para investigación científica impulsado por LangGraph e inspirado en No Game No Life"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Suniaster Tet", email = "tet@disboard.ngnl"}
+]
+
+dependencies = [
+    # --- Orquestación ---
+    "langgraph>=0.2.0",
+    "langchain-core>=0.3.0",
+    # --- Checkpointer durable ---
+    "langgraph-checkpoint-postgres>=2.0.0",
+    "psycopg[binary,pool]>=3.1.0",
+    # --- Web local ---
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    # --- Datos y documentos ---
+    "polars>=1.0.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+    "jinja2>=3.1.0",
+    "python-docx>=1.0.0",
+    "pypdf>=4.0.0",
+    "pyyaml>=6.0",
+    # --- Reportería ---
+    "pylatex>=1.4.0",
+    "reportlab>=4.0.0",
+    # --- Motor DuckDB (Izuna) ---
+    "duckdb>=1.0.0",
+    # --- HTTP y APIs externas ---
+    "httpx>=0.27.0",
+    "requests>=2.31.0",
+    # --- Seguridad / HITL ---
+    "cryptography>=42.0.0",
+    # --- Suniaster: adaptadores LangChain por proveedor ---
+    "langchain-groq>=0.2.0",
+    "langchain-google-genai>=2.0.0",
+    "langchain-openai>=0.2.0",
+    "langchain-anthropic>=0.2.0",
+    "langchain-deepseek>=0.1.0",
+    "langchain-ollama>=0.2.0",
+    # --- SDKs nativos de proveedores ---
+    "google-genai>=1.0.0",
+    "groq>=0.11.0",
+    "openai>=1.50.0",
+    "anthropic>=0.40.0",
+    # --- Shiro ---
+    "google-antigravity>=0.1.21",
+    "wolframalpha>=5.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=5.0.0",
+    "ruff>=0.6.0",
+    "mypy>=1.11.0",
+    "playwright>=1.40.0",
+]
+# Bases tensoriales avanzadas (Izuna) — opcional por peso
+tensor = [
+    "torch>=2.0.0",
+    "tensornetwork>=0.4.0",
+]
+# STT/TTS local (opcional)
+speech = [
+    "SpeechRecognition>=3.10.0",
+    "pyttsx3>=2.90",
+]
+
+[project.scripts]
+disboard = "console.main:main"
+
+# =============================================================================
+# pytest — auditoría y reproducibilidad
+# =============================================================================
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra -q --strict-markers"
+markers = [
+    "slow: pruebas lentas (excluir con -m 'not slow')",
+    "integration: pruebas que llaman APIs externas (Crossref, OpenAlex, etc.)",
+    "antigravity: pruebas que requieren Antigravity CLI/SDK",
+    "speech: pruebas que requieren STT/TTS local",
+]
+asyncio_mode = "auto"
+
+# =============================================================================
+# ruff — linting y formato
+# =============================================================================
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "elkia", "suniaster", "core", "agents", "console", "web", "privacy",
+    "tools", "disboard_ext",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "T20"]
+"scripts/**/*.py" = ["T20"]
+
+# =============================================================================
+# mypy — tipado estático
+# =============================================================================
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
