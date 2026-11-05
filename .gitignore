@@ -1,41 +1,68 @@
-# Entornos y dependencias
-__pycache__/
-*.pyc
+# =============================================================================
+# Disboard-NGNL — .gitignore
+# =============================================================================
+
+# Entornos virtuales
 .venv/
 venv/
+ENV/
 env/
-node_modules/
 
-# Variables de entorno y credenciales
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Variables de entorno y secretos
 .env
-.env.*
+.env.local
+secrets/
+*.pem
 *.key
-secrets.json
-disboard_plugins.json
-.disboard-local/
-**/docs/bibliografia/fuentes/*.pdf
-**/docs/bibliografia/pdf-*.md
-**/docs/revisiones/
 
-# Artefactos de compilación LaTeX
-*.aux
-*.log
-*.out
-*.toc
-*.synctex.gz
-*.fls
-*.fdb_latexmk
-*.bbl
-*.blg
+# Logs y trazas de ejecución (auditoría local, no versionar)
+logs/
+!logs/.gitkeep
+*.jsonl
+graph_trace.jsonl
+*.db
 
-# Archivos temporales del sistema
-.DS_Store
-Thumbs.db
+# Artefactos y salidas generadas por agentes
+artifacts/
+out/
+dist/
+build/
+*.egg-info/
+
+# Edges: se versiona contrato, log y semilla; no los artefactos pesados
+edges/*
+!edges/.gitkeep
+!edges/*/
+edges/*/artifacts/
+edges/*/out/
+edges/*/*.pdf
+edges/*/*.docx
+edges/*/*.xlsx
+edges/*/*.parquet
+edges/*/*.h5
+edges/*/*.tensorial
+
+# IDEs y editores
+.vscode/
+.idea/
 *.swp
+.DS_Store
 
-# Jupyter / Notebook
-.ipynb_checkpoints/
+# Cobertura y pruebas
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
 
-# Salidas locales no versionadas por defecto
-/tmp/
-/scratch/
+# Antigravity local
+.gemini/
+
+# Cloudflare Tunnel (credenciales del túnel)
+.cloudflared/
