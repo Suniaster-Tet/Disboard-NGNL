@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+{% if is_new %}
+  <h2>Nuevo edge</h2>
+  <form id="new-edge-form">
+    <label>Idea semilla (ruta): <input name="seed" type="text"></label><br>
+    <label>Título: <input name="title" type="text"></label><br>
+    <button type="submit">Crear</button>
+  </form>
+  <script>
+    document.getElementById('new-edge-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      const res = await fetch('/edges/new', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      window.location = `/edges/${json.edge_id}`;
+    });
+  </script>
+{% else %}
+  <h2>Edge: {{ edge.id }}</h2>
+  <p><strong>Título:</strong> {{ edge.titulo }}</p>
+  <p><strong>Estado:</strong> {{ edge.estado }}</p>
+  <p><strong>Avance:</strong> {{ edge.avance }}%</p>
+
+  {% if contract %}
+  <h3>Contrato</h3>
+  <p>Aprobado por Tet: {{ 'sí' if contract.aprobado_por_tet else 'no' }}</p>
+  <h4>Objetivos</h4>
+  <ul>{% for o in contract.objetivos %}<li>{{ o }}</li>{% endfor %}</ul>
+  <h4>Metas</h4>
+  <ul>{% for m in contract.metas %}<li>{{ m }}</li>{% endfor %}</ul>
+  <h4>Entregables</h4>
+  <ul>{% for e in contract.entregables %}<li>{{ e.id }} — {{ e.descripcion }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <h3>Log (últimos eventos)</h3>
+  <ul>
+    {% for entry in log_entries[-20:] %}
+      <li>{{ entry.timestamp }} — {{ entry.agente or '—' }} — {{ entry.evento }}</li>
+    {% endfor %}
+  </ul>
+
+  <h3>Artefactos</h3>
+  <ul>
+    {% for a in artifacts %}
+      <li><a href="/artifacts/{{ edge.id }}/{{ a.name }}">{{ a.name }}</a></li>
+    {% endfor %}
+  </ul>
+{% endif %}
+{% endblock %}

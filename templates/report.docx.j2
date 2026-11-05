@@ -1,0 +1,28 @@
+# {{ title }}
+**Autor(es):** {{ authors | join(', ') }}
+**Fecha:** {{ date | default("Hoy") }}
+**Estado:** {{ status | default("Borrador") }}
+
+---
+
+{% if summary %}
+## Resumen Ejecutivo
+{{ summary }}
+{% endif %}
+
+{% for section in sections %}
+## {{ section.title }}
+{{ section.content }}
+
+{% if section.table_data and section.table_headers %}
+| {% for col in section.table_headers %}{{ col }} |{% endfor %}
+| {% for col in section.table_headers %}---|{% endfor %}
+{% for row in section.table_data %}
+| {% for cell in row %}{{ cell }} |{% endfor %}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+---
+*Generado deterministamente por Disboard-NGNL (Stephanie Dola Stylist Engine)*

@@ -1,0 +1,44 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+
+\title{\textbf{ {{ title }} }}
+\author{
+{% for author in authors %}
+  {{ author.name }}{% if author.affiliation %} \thanks{ {{ author.affiliation }} }{% endif %}{% if not loop.last %}, {% endif %}
+{% endfor %}
+}
+\date{ {{ date | default("\\today") }} }
+
+\begin{document}
+\maketitle
+
+{% if abstract %}
+\begin{abstract}
+{{ abstract }}
+\end{abstract}
+{% endif %}
+
+{% for section in sections %}
+\section{ {{ section.title }} }
+{{ section.content }}
+
+{% for subsection in section.subsections %}
+\subsection{ {{ subsection.title }} }
+{{ subsection.content }}
+{% endfor %}
+{% endfor %}
+
+{% if bibliography %}
+\bibliographystyle{plain}
+\bibliography{ {{ bibliography }} }
+{% endif %}
+
+\end{document}

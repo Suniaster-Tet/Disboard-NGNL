@@ -1,0 +1,37 @@
+---
+marp: true
+theme: default
+paginate: true
+header: "{{ title }} | Disboard-NGNL"
+footer: "✦ ¡Aschente! ✦"
+author: "{{ author | default('Stephanie Dola') }}"
+---
+
+# {{ title }}
+### {{ subtitle | default("Presentación de Avance y Resultados") }}
+
+**Presentador:** {{ author | default("Stephanie Dola") }}
+**Fecha:** {{ date | default("Hoy") }}
+
+---
+
+{% for slide in slides %}
+# {{ slide.title }}
+
+{% if slide.bullets %}
+{% for bullet in slide.bullets %}
+- {{ bullet }}
+{% endfor %}
+{% endif %}
+
+{% if slide.content %}
+{{ slide.content }}
+{% endif %}
+
+---
+{% endfor %}
+
+# ¡Gracias!
+### ¿Preguntas o Comentarios para Tet?
+
+✦ **¡Aschente!** ✦

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Edges activos</h2>
+<table>
+  <thead>
+    <tr><th>ID</th><th>Título</th><th>Estado</th><th>Avance</th></tr>
+  </thead>
+  <tbody>
+    {% for edge in edges %}
+      <tr>
+        <td><a href="/edges/{{ edge.id }}">{{ edge.id }}</a></td>
+        <td>{{ edge.titulo }}</td>
+        <td>{{ edge.estado }}</td>
+        <td>{{ edge.avance }}%</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4">No hay edges activos.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if thermometers %}
+<h2>Termómetros</h2>
+<table>
+  <thead>
+    <tr><th>Edge</th><th>Título</th><th>Prioridad</th><th>Avance</th><th>Días restantes</th></tr>
+  </thead>
+  <tbody>
+    {% for t in thermometers %}
+      <tr>
+        <td>{{ t.edge_id }}</td>
+        <td>{{ t.titulo }}</td>
+        <td>{{ t.prioridad.value }}</td>
+        <td>{{ t.avance_pct }}%</td>
+        <td>{{ t.dias_restantes if t.dias_restantes is not none else '—' }}</td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

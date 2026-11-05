@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Artefactos</h2>
+<ul>
+  {% for a in artifacts %}
+    <li><a href="/artifacts/{{ a.edge_id }}/{{ a.name }}">{{ a.nombre }}</a> — {{ a.agente }}</li>
+  {% else %}
+    <li>No hay artefactos.</li>
+  {% endfor %}
+</ul>
+{% endblock %}

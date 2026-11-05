@@ -1,0 +1,112 @@
+# suniaster/config.yaml
+# Configuración de modelos por agente y política de costo.
+# Reemplaza a config/agents_config.yaml.
+
+defaults:
+  allow_paid: false          # Si es false, Suniaster evita proveedores de pago
+  fallback_free: "groq"
+  # Fallback cuando falta WOLFRAM_API_KEY (Shiro)
+  wolfram_fallback_provider: "google"
+  wolfram_fallback_model: "gemini-2.5-pro"
+
+agents:
+  stephanie:
+    role: "Diplomática / Orquestadora / Rollbacks"
+    provider: "google"
+    model: "gemini-2.5-pro"
+    fallback_provider: "groq"
+    fallback_model: "llama-3.3-70b-versatile"
+
+  fiel:
+    role: "Asistencia Administrativa / Agenda / Correo Anonimizado"
+    provider: "google"
+    model: "gemini-2.5-flash"
+    fallback_provider: "ollama"
+    fallback_model: "qwen3.5:9b"
+
+  sora:
+    role: "Estratega / PM / Planificación de Backlog"
+    provider: "groq"
+    model: "llama-3.3-70b-versatile"
+    fallback_provider: "google"
+    fallback_model: "gemini-2.5-pro"
+
+  izuna:
+    role: "HPC / Ingeniería de Datos (Polars/Pandas)"
+    provider: "ollama"
+    model: "qwen3.5:9b"
+
+  jibril:
+    role: "Descubrimiento Científico (OpenAlex/Crossref/ORCID)"
+    provider: "groq"
+    model: "llama-3.3-70b-versatile"
+    fallback_provider: "google"
+    fallback_model: "gemini-2.5-flash"
+
+  shiro:
+    role: "Analista Lógico / Código TDD / Cómputo Wolfram"
+    provider: "deepseek"
+    model: "deepseek-chat"
+    fallback_provider: "google"
+    fallback_model: "gemini-2.5-pro"
+    tools:
+      - antigravity
+      - wolfram
+
+  chlammy:
+    role: "Crítica Adversarial y Alineación con Contrato"
+    provider: "groq"
+    model: "llama-3.3-70b-versatile"
+    fallback_provider: "google"
+    fallback_model: "gemini-2.5-flash"
+
+  suniaster_updater:
+    role: "Vigilante de Modelos y Endpoints"
+    provider: "google"
+    model: "gemini-2.5-flash"
+
+providers:
+  groq:
+    type: "groq"
+    free_tier: true
+    env_key: "GROQ_API_KEY"
+    models:
+      - "llama-3.3-70b-versatile"
+      - "qwen/qwen3-32b"
+
+  google:
+    type: "google_genai"
+    free_tier: true
+    env_key: "GOOGLE_AI_STUDIO_API_KEY"
+    models:
+      - "gemini-2.5-pro"
+      - "gemini-2.5-flash"
+
+  ollama:
+    type: "ollama"
+    free_tier: true
+    env_key: null
+    base_url: "http://localhost:11434"
+    models:
+      - "qwen3.5:9b"
+
+  openai:
+    type: "openai"
+    free_tier: false
+    env_key: "OPENAI_API_KEY"
+    models:
+      - "gpt-4o-mini"
+
+  anthropic:
+    type: "anthropic"
+    free_tier: false
+    env_key: "ANTHROPIC_API_KEY"
+    models:
+      - "claude-sonnet-4-6"
+
+  deepseek:
+    type: "deepseek"
+    free_tier: false
+    env_key: "DEEPSEEK_API_KEY"
+    models:
+      - "deepseek-chat"
