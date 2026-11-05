@@ -1,111 +1,88 @@
-"""Cross-engine UI smoke test with a static server and mocked local API.
-
-Marcado como slow: requiere que el dashboard web exista y que Playwright esté
-instalado. Se salta automáticamente si `web/templates/index.html` no existe.
-"""
+"""Smoke test del dashboard real con Playwright."""
 from __future__ import annotations
 
-import json
+import re
+import socket
 import threading
-from functools import partial
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import time
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import pytest
 from playwright.sync_api import sync_playwright
 
-ROOT = Path(__file__).resolve().parents[1]
-WEB_INDEX = ROOT / "web" / "templates" / "index.html"
-
-pytestmark = [
-    pytest.mark.slow,
-    pytest.mark.skipif(not WEB_INDEX.exists(), reason="dashboard web aún no implementado"),
-]
+pytestmark = pytest.mark.slow
 
 
-class DisboardStaticHandler(SimpleHTTPRequestHandler):
-    def translate_path(self, path: str) -> str:
-        if urlsplit(path).path.startswith("/assets/"):
-            path = "/web/" + urlsplit(path).path.removeprefix("/assets/")
-        return super().translate_path(path)
+def test_dashboard_browser_smoke(tmp_path, monkeypatch) -> None:
+    with sync_playwright() as playwright:
+        browser_types = (playwright.chromium, playwright.firefox, playwright.webkit)
+        installed = [
+            browser_type
+            for browser_type in browser_types
+            if Path(browser_type.executable_path).exists()
+        ]
+        if not installed:
+            pytest.skip("Playwright instalado sin navegadores; ejecuta `playwright install`.")
 
+        monkeypatch.setenv(
+            "DISBOARD_WEB_CHECKPOINT_DB", str(tmp_path / "web_checkpoints.sqlite")
+        )
+        import web.server as web_server
+        from elkia.registry import ElkiaRegistry
 
-def api_response(route) -> None:
-    request = route.request
-    path = request.url.split("?", 1)[0]
-    if path.endswith("/api/status"):
-        payload = {"registered_users": 1, "local_model_configured": True,
-                   "public_doi_lookup_enabled": False, "inference_mode": "local-only"}
-    elif path.endswith("/api/session"):
-        payload = {"username": "Tet"}
-    elif path.endswith("/api/projects"):
-        payload = {"projects": [{"slug": "edge-smoke", "name": "SMOKE — Browser test"}]}
-    elif path.endswith("/api/usage"):
-        payload = {"agents": [], "limits": {}, "usage": []}
-    elif path.endswith("/api/bibliography"):
-        payload = {"notes": [], "proposals": []}
-    elif path.endswith("/api/artifacts") and request.method == "POST":
-        payload = {"project": "edge-smoke", "path": "uploads/smoke.txt",
-                   "size": 18, "sha256": "a" * 64}
-    elif path.endswith("/api/artifacts"):
-        payload = {"project": "edge-smoke", "artifacts": []}
-    elif path.endswith("/api/runs"):
-        payload = {"plan": "Plan smoke", "draft": "Borrador smoke",
-                   "review": "Revisión smoke", "approved_by_agent": False,
-                   "revisions": 1, "trace": []}
-    else:
-        payload = {}
-    route.fulfill(status=200, content_type="application/json",
-                  body=json.dumps(payload, ensure_ascii=False))
+        edges_root = tmp_path / "edges"
+        monkeypatch.setattr("core.edge.EDGES_ROOT", edges_root)
+        registry = ElkiaRegistry(ruta=edges_root / "elkia_registry.json")
+        monkeypatch.setattr(web_server, "ElkiaRegistry", lambda: registry)
+        monkeypatch.setattr("web.dashboard.views.ElkiaRegistry", lambda: registry)
 
+        import uvicorn
 
-def check_browser(browser_type, base_url: str) -> None:
-    browser = browser_type.launch()
-    try:
-        page = browser.new_page(viewport={"width": 1280, "height": 900})
-        page_errors: list[str] = []
-        page.on("pageerror", lambda error: page_errors.append(str(error)))
-        page.route("**/api/**", api_response)
-        page.goto(base_url, wait_until="networkidle")
-        page.locator("#workspace-view:not([hidden])").wait_for()
-        page.locator("#project-select").select_option("edge-smoke")
+        with socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            port = listener.getsockname()[1]
+            server = uvicorn.Server(uvicorn.Config(web_server.app, log_level="error"))
+            thread = threading.Thread(
+                target=server.run,
+                kwargs={"sockets": [listener]},
+                daemon=True,
+            )
+            thread.start()
+            deadline = time.monotonic() + 10
+            while not server.started and thread.is_alive() and time.monotonic() < deadline:
+                threading.Event().wait(0.01)
+            if not server.started:
+                server.should_exit = True
+                thread.join(timeout=5)
+                raise RuntimeError("FastAPI no inició para el smoke test.")
 
-        page.get_by_role("tab", name="Archivos").click()
-        page.locator("#artifact-input").set_input_files({
-            "name": "smoke.txt", "mimeType": "text/plain",
-            "buffer": b"browser smoke test"})
-        page.get_by_role("button", name="Guardar en el host").click()
+            try:
+                for browser_type in installed:
+                    browser = browser_type.launch()
+                    try:
+                        page = browser.new_page(viewport={"width": 1280, "height": 900})
+                        page_errors: list[str] = []
+                        page.on("pageerror", lambda error: page_errors.append(str(error)))
+                        page.goto(f"http://127.0.0.1:{port}/", wait_until="networkidle")
+                        page.get_by_role("heading", name="Disboard-NGNL").wait_for()
+                        page.get_by_role("link", name="Nuevo edge").click()
+                        page.locator('input[name="title"]').fill("Browser smoke edge")
+                        page.get_by_role("button", name="Crear").click()
+                        page.wait_for_url(re.compile(r"/edges/edge-browser-smoke-edge-[a-f0-9]+$"))
+                        page.get_by_text("Browser smoke edge").wait_for()
 
-        page.get_by_role("tab", name="Chat").click()
-        page.locator("#task-input").fill("Probar la interfaz entre motores.")
-        page.get_by_role("button", name="Enviar").click()
-        if page_errors:
-            raise AssertionError("; ".join(page_errors))
-
-        page.set_viewport_size({"width": 390, "height": 844})
-        page.wait_for_timeout(100)
-        dims = page.evaluate(
-            "() => ({viewport: document.documentElement.clientWidth, "
-            "content: document.documentElement.scrollWidth})")
-        if dims["content"] > dims["viewport"] + 1:
-            raise AssertionError(f"Horizontal overflow at mobile viewport: {dims}")
-        print(f"{browser_type.name}: PASS (desktop and 390px viewport)")
-    finally:
-        browser.close()
-
-
-def test_cross_engine_ui_smoke() -> None:
-    handler = partial(DisboardStaticHandler, directory=str(ROOT))
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
-    base_url = f"http://127.0.0.1:{server.server_port}/web/templates/"
-    try:
-        with sync_playwright() as playwright:
-            for browser_type in (playwright.chromium, playwright.firefox, playwright.webkit):
-                check_browser(browser_type, base_url)
-    finally:
-        server.shutdown()
-        thread.join()
-        server.server_close()
+                        page.set_viewport_size({"width": 390, "height": 844})
+                        dimensions = page.evaluate(
+                            "() => ({viewport: document.documentElement.clientWidth, "
+                            "content: document.documentElement.scrollWidth})"
+                        )
+                        if dimensions["content"] > dimensions["viewport"] + 1:
+                            raise AssertionError(f"Desbordamiento móvil: {dimensions}")
+                        if page_errors:
+                            raise AssertionError("; ".join(page_errors))
+                    finally:
+                        browser.close()
+            finally:
+                server.should_exit = True
+                thread.join(timeout=5)

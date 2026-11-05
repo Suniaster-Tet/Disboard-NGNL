@@ -23,13 +23,13 @@ def list_supported_providers() -> list[str]:
 def create_model(provider: str, model: str, **kwargs: Any):
     """Crea un modelo LangChain para el proveedor indicado."""
     if provider == "groq":
-        from langchain_groq import ChatGroq
         _req_env("GROQ_API_KEY")
+        from langchain_groq import ChatGroq
         return ChatGroq(model=model, temperature=0, **kwargs)
 
     if provider == "google_genai":
-        from langchain_google_genai import ChatGoogleGenerativeAI
         _req_env("GOOGLE_AI_STUDIO_API_KEY")
+        from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(model=model, temperature=0, **kwargs)
 
     if provider == "ollama":
@@ -38,18 +38,18 @@ def create_model(provider: str, model: str, **kwargs: Any):
         return ChatOllama(model=model, base_url=base_url, temperature=0, **kwargs)
 
     if provider == "openai":
-        from langchain_openai import ChatOpenAI
         _req_env("OPENAI_API_KEY")
+        from langchain_openai import ChatOpenAI
         return ChatOpenAI(model=model, temperature=0, **kwargs)
 
     if provider == "anthropic":
-        from langchain_anthropic import ChatAnthropic
         _req_env("ANTHROPIC_API_KEY")
+        from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(model=model, temperature=0, **kwargs)
 
     if provider == "deepseek":
-        from langchain_deepseek import ChatDeepSeek
         _req_env("DEEPSEEK_API_KEY")
+        from langchain_deepseek import ChatDeepSeek
         return ChatDeepSeek(model=model, temperature=0, **kwargs)
 
     raise ValueError(f"Proveedor no soportado: {provider}")

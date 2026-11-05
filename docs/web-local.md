@@ -19,9 +19,10 @@ los hashes SHA-256 antes de servir cualquier entregable.
   los entregables antes de servirlos.
 - **Aislamiento:** el servidor no expone endpoints de modificación de estado
   sin pasar por la validación de firma digital de Tet (`core/hitl.py`).
-- **Checkpointer:** el grafo usa `web/checkpointer.py`, que delega en
-  `core/checkpointer.py`. Con `CHECKPOINTER_BACKEND=postgres`, el estado del
-  hilo persiste en Postgres (ver `docker-compose.yml`).
+- **Checkpointer:** el grafo usa `SqliteSaver` de LangGraph mediante
+  `web/checkpointer.py`. Los hilos persisten en
+  `logs/web_graph_checkpoints.sqlite`; la ruta se puede cambiar con
+  `DISBOARD_WEB_CHECKPOINT_DB`.
 
 ## Cómo levantar el servidor
 

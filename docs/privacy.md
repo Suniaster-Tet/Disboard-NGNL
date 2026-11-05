@@ -36,7 +36,7 @@
 - `edges/<id>/artifacts/` — entregables con hash SHA-256.
 - `logs/graph_trace.jsonl` — trazabilidad del grafo web.
 - `logs/tensor_db.jsonl` — base tensorial de Izuna.
-- `logs/disboard_checkpoints.db` o Postgres — checkpointer durable.
+- `logs/web_graph_checkpoints.sqlite` — checkpointer SQLite durable del grafo web.
 
 ## Verificación
 

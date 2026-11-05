@@ -166,7 +166,7 @@ El servidor web también expone un dashboard en la raíz (`/`) que actúa como c
 
 - **Datos en prompts externos:** Fiel Nirvalen filtra datos sensibles antes de cualquier consulta a APIs externas (Jibril, Wolfram, proveedores de IA).
 - **Almacenamiento local:** logs, bases de datos tensoriales (Izuna) y artefactos generados residen en el equipo núcleo. No se envían a servicios externos salvo consultas estrictamente necesarias (DOIs, cálculos simbólicos, inferencia de IA).
-- **Checkpointer:** el estado del grafo web se conserva localmente (en memoria o en almacenamiento durable). Para uso real, se recomienda `CHECKPOINTER_BACKEND=postgres` con `docker-compose.yml`.
+- **Checkpointer:** el grafo web conserva sus hilos en SQLite (`logs/web_graph_checkpoints.sqlite`) mediante el saver oficial de LangGraph.
 - **Documentación de privacidad:** `docs/privacy.md` describe la postura arquitectónica; `privacy/prompts_policy.md` contiene la política operativa que aplica Fiel Nirvalen.
 - **Acceso remoto:** para consultar desde tablet u otro equipo fuera de la red local, ver `docs/manual.md` (Cloudflare Tunnel con `homehost` o SSH al Codespace). Nunca exponer el servidor sin TLS ni autenticación.
 

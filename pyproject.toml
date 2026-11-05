@@ -2,6 +2,19 @@
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools.packages.find]
+include = [
+    "agents*",
+    "console*",
+    "core*",
+    "disboard_ext*",
+    "elkia*",
+    "privacy*",
+    "suniaster*",
+    "tools*",
+    "web*",
+]
+
 [project]
 name = "disboard-ngnl"
 version = "1.0.0"
@@ -16,13 +29,12 @@ authors = [
 dependencies = [
     # --- Orquestación ---
     "langgraph>=0.2.0",
+    "langgraph-checkpoint-sqlite>=2.0.0",
     "langchain-core>=0.3.0",
-    # --- Checkpointer durable ---
-    "langgraph-checkpoint-postgres>=2.0.0",
-    "psycopg[binary,pool]>=3.1.0",
     # --- Web local ---
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
+    "python-dotenv>=1.0.0",
     # --- Datos y documentos ---
     "polars>=1.0.0",
     "pandas>=2.0.0",
@@ -65,6 +77,7 @@ dev = [
     "ruff>=0.6.0",
     "mypy>=1.11.0",
     "playwright>=1.40.0",
+    "pre-commit>=3.7.0",
 ]
 # Bases tensoriales avanzadas (Izuna) — opcional por peso
 tensor = [
@@ -92,7 +105,6 @@ markers = [
     "antigravity: pruebas que requieren Antigravity CLI/SDK",
     "speech: pruebas que requieren STT/TTS local",
 ]
-asyncio_mode = "auto"
 
 # =============================================================================
 # ruff — linting y formato

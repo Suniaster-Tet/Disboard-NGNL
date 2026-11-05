@@ -23,7 +23,7 @@ def test_router_unknown_agent(tmp_suniaster_config):
 def test_router_respects_free_tier(tmp_suniaster_config, monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "fake")
     router = SuniasterRouter(config_path=tmp_suniaster_config)
-    with patch("suniaster.providers.create_model", return_value="modelo-fake"):
+    with patch("suniaster.router.create_model", return_value="modelo-fake"):
         model = router.get_model_for("sora")
         assert model == "modelo-fake"
 

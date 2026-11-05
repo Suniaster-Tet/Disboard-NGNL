@@ -17,7 +17,6 @@
   "containerEnv": {
     "PYTHONDONTWRITEBYTECODE": "1",
     "PYTHONUNBUFFERED": "1",
-    "CHECKPOINTER_BACKEND": "postgres",
     "PRIVACY_STRICT": "true",
     "SPEECH_INPUT_BACKEND": "local-stt",
     "SPEECH_OUTPUT_BACKEND": "kitten-tts"
@@ -86,19 +85,15 @@
     }
   },
 
-  "postCreateCommand": "bash -lc '[ -f .env ] || cp .env.example .env; mkdir -p logs edges; pip install -e \".[dev]\" || true; pre-commit install || true'",
+  "postCreateCommand": "bash -lc 'set -e; [ -f .env ] || cp .env.example .env; mkdir -p logs edges; python -m pip install -e \".[dev]\"; pre-commit install'",
 
-  "postStartCommand": "bash -lc 'mkdir -p logs edges; docker compose up -d postgres || true'",
+  "postStartCommand": "bash -lc 'mkdir -p logs edges'",
 
-  "forwardPorts": [8000, 5432, 8888, 11434],
+  "forwardPorts": [8000, 8888, 11434],
   "portsAttributes": {
     "8000": {
       "label": "Disboard Web (LangGraph + dashboard)",
       "onAutoForward": "notify"
-    },
-    "5432": {
-      "label": "Postgres (checkpointer)",
-      "onAutoForward": "silent"
     },
     "8888": {
       "label": "Jupyter (opcional)",

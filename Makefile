@@ -7,7 +7,7 @@ PIP ?= $(PY) -m pip
 
 .PHONY: help install install-dev lint format test test-fast console web web-dev \
         dashboard check-models status healthcheck clean precommit \
-        docker-build docker-up docker-down tunnel speech-test
+		docker-build docker-up docker-down ensure-env tunnel speech-test
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -72,13 +72,16 @@ speech-test: ## Prueba STT/TTS local (requiere pip install -e ".[speech]")
 	$(PY) -m tools.speech_output --test
 
 # --- Docker ----------------------------------------------------------------
-docker-build: ## Construye la imagen del devcontainer
+ensure-env: ## Crea .env desde la plantilla si aún no existe
+	@test -f .env || cp .env.example .env
+
+docker-build: ensure-env ## Construye la imagen del devcontainer
 	docker compose build
 
-docker-up: ## Levanta los servicios (devcontainer, web, postgres)
+docker-up: ensure-env ## Levanta los servicios (devcontainer y web)
 	docker compose up -d
 
-docker-down: ## Detiene los servicios
+docker-down: ensure-env ## Detiene los servicios
 	docker compose down
 
 # --- Limpieza --------------------------------------------------------------

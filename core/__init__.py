@@ -10,24 +10,26 @@ Expone los tipos y utilidades que consola y web comparten:
 - Plugins (extensibilidad controlada)
 """
 
-from core.edge import Edge
-from core.contract import Contract
-from core.log import Log
+from dotenv import load_dotenv
+
 from core.artifact import Artifact
+from core.checkpointer import DisboardCheckpointer
+from core.contract import Contract
+from core.edge import Edge
 from core.hitl import (
     firmar_aprobacion,
     generar_firma_tet,
     solicitar_aprobacion_tet,
     verificar_firma_tet,
 )
-from core.state_schema import OverallState
-from core.checkpointer import DisboardCheckpointer
+from core.log import Log
 from core.plugins import (
     CONTRACT_VERSION,
     PluginDescriptor,
     PluginRegistry,
     create_default_registry,
 )
+from core.state_schema import OverallState
 
 __all__ = [
     # Núcleo
@@ -50,3 +52,5 @@ __all__ = [
     "PluginRegistry",
     "create_default_registry",
 ]
+
+load_dotenv()

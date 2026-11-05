@@ -1,11 +1,12 @@
 """Vistas HTML del dashboard."""
 from __future__ import annotations
 
+from html import escape
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from fastapi import Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from core.artifact import Artifact
@@ -30,8 +31,9 @@ def render_index(request: Request) -> HTMLResponse:
     registry = ElkiaRegistry()
     dashboard = ElkiaDashboard(registro=registry)
     return TEMPLATES.TemplateResponse(
-        "index.html",
-        _base_context(
+        request=request,
+        name="index.html",
+        context=_base_context(
             request,
             edges=registry.listar(),
             thermometers=dashboard.listar_termometros(),
@@ -43,8 +45,9 @@ def render_index(request: Request) -> HTMLResponse:
 def render_edges(request: Request) -> HTMLResponse:
     registry = ElkiaRegistry()
     return TEMPLATES.TemplateResponse(
-        "index.html",
-        _base_context(request, edges=registry.listar(), thermometers=[]),
+        request=request,
+        name="index.html",
+        context=_base_context(request, edges=registry.listar(), thermometers=[]),
     )
 
 
@@ -58,8 +61,9 @@ def render_edge_detail(request: Request, edge: Edge) -> HTMLResponse:
         if a.get("name")
     ]
     return TEMPLATES.TemplateResponse(
-        "edge_detail.html",
-        _base_context(
+        request=request,
+        name="edge_detail.html",
+        context=_base_context(
             request,
             edge=edge,
             contract=contract,
@@ -71,24 +75,25 @@ def render_edge_detail(request: Request, edge: Edge) -> HTMLResponse:
 
 def render_new_edge(request: Request) -> HTMLResponse:
     return TEMPLATES.TemplateResponse(
-        "edge_detail.html",
-        _base_context(request, edge=None, contract=None, log_entries=[], artifacts=[], is_new=True),
+        request=request,
+        name="edge_detail.html",
+        context=_base_context(
+            request, edge=None, contract=None, log_entries=[], artifacts=[], is_new=True
+        ),
     )
 
 
 def render_agenda(request: Request) -> HTMLResponse:
     registry = ElkiaRegistry()
     return TEMPLATES.TemplateResponse(
-        "index.html",
-        _base_context(request, edges=registry.listar(), thermometers=[], agenda=True),
+        request=request,
+        name="index.html",
+        context=_base_context(request, edges=registry.listar(), thermometers=[], agenda=True),
     )
 
 
 def render_artifact(path: Path):
     suffix = path.suffix.lower()
-    if suffix == ".html":
-        return HTMLResponse(path.read_text(encoding="utf-8"))
-    if suffix in {".md", ".txt"}:
-        return HTMLResponse(f"<pre>{path.read_text(encoding='utf-8')}</pre>")
-    # Para PDFs, DOCX, etc. se sirve el binario
-    return HTMLResponse(content=path.read_bytes(), media_type="application/octet-stream")
+    if suffix in {".html", ".md", ".txt"}:
+        return HTMLResponse(f"<pre>{escape(path.read_text(encoding='utf-8'))}</pre>")
+    return FileResponse(path, filename=path.name)

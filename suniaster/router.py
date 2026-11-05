@@ -15,8 +15,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+from dotenv import load_dotenv
 
 from suniaster.providers import ProviderUnavailable, create_model
+
+load_dotenv()
 
 CONFIG_PATH = Path(os.getenv("SUNIASTER_CONFIG", "suniaster/config.yaml"))
 

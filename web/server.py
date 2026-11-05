@@ -67,7 +67,19 @@ def api_bibliography(project: Optional[str] = None) -> Dict[str, Any]:
 
 @app.get("/api/artifacts")
 def api_artifacts(project: Optional[str] = None) -> Dict[str, Any]:
-    return {"project": project, "artifacts": []}
+    if project:
+        try:
+            edges = [Edge.cargar(project)]
+        except FileNotFoundError:
+            edges = []
+    else:
+        edges = ElkiaRegistry().listar()
+    artifacts = [
+        {"edge_id": edge.id, **item}
+        for edge in edges
+        for item in Artifact.list(edge)
+    ]
+    return {"project": project, "artifacts": artifacts}
 
 
 @app.get("/api/runs")
@@ -125,6 +137,11 @@ def dashboard_edges(request: Request) -> HTMLResponse:
     return views.render_edges(request)
 
 
+@app.get("/edges/new", response_class=HTMLResponse)
+def dashboard_new_edge(request: Request) -> HTMLResponse:
+    return views.render_new_edge(request)
+
+
 @app.get("/edges/{edge_id}", response_class=HTMLResponse)
 def dashboard_edge_detail(request: Request, edge_id: str) -> HTMLResponse:
     try:
@@ -132,11 +149,6 @@ def dashboard_edge_detail(request: Request, edge_id: str) -> HTMLResponse:
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"Edge no encontrado: {edge_id}")
     return views.render_edge_detail(request, edge)
-
-
-@app.get("/edges/new", response_class=HTMLResponse)
-def dashboard_new_edge(request: Request) -> HTMLResponse:
-    return views.render_new_edge(request)
 
 
 @app.post("/edges/new")
@@ -158,9 +170,22 @@ def dashboard_agenda(request: Request) -> HTMLResponse:
 
 @app.get("/artifacts/{edge_id}/{name}")
 def dashboard_artifact(edge_id: str, name: str):
-    path = Artifact.artifact_path(edge_id, name)
-    if not path.exists():
+    try:
+        edge = Edge.cargar(edge_id)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Edge no encontrado: {edge_id}")
+    entry = next((item for item in Artifact.list(edge) if item.get("name") == name), None)
+    if entry is None:
         raise HTTPException(status_code=404, detail=f"Artefacto no encontrado: {name}")
+    try:
+        path = Artifact.artifact_path(edge_id, name)
+    except ValueError:
+        raise HTTPException(status_code=404, detail=f"Artefacto no encontrado: {name}")
+    artifact = Artifact(edge_id=edge_id, name=name, path=path, agent="", sha256=entry.get("sha256", ""))
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"Artefacto no encontrado: {name}")
+    if not artifact.verify():
+        raise HTTPException(status_code=409, detail=f"El hash del artefacto no coincide: {name}")
     return views.render_artifact(path)
 
 

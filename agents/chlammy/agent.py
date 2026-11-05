@@ -24,8 +24,6 @@ class ChlammyAuditor(Agent):
             problems.append("No hay entregables para evaluar.")
         if not contract.get("objetivos"):
             problems.append("El contrato no tiene objetivos.")
-        if not contract.get("entregables"):
-            problems.append("El contrato no tiene entregables definidos.")
         return {
             "aligned": not problems,
             "compliance_score": 100.0 if not problems else 0.0,

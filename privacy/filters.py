@@ -17,6 +17,7 @@ from typing import Any, Dict
 # --- Patrones base (siempre activos) ---
 _BASE_PATTERNS = [
     (re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b"), "[EMAIL_PROTECTED]"),
+    (re.compile(r"(?<!\w)(?:\+?1[-. ]?)?\(?\d{3}\)?[-. ]?\d{3}[-. ]?\d{4}(?!\w)"), "[PHONE_PROTECTED]"),
     (re.compile(r"\b\d{3}[- ]?\d{3}[- ]?\d{3}[- ]?\d{3}\b"), "[PHONE_PROTECTED]"),
     (re.compile(r"\b(?:\d[ -]*?){13,16}\b"), "[CARD_PROTECTED]"),
 ]

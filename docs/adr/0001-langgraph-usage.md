@@ -1,5 +1,9 @@
 # ADR 0001 — Uso de LangGraph para el grafo web
 
+> Estado actual: el adaptador inicial fue reemplazado por `SqliteSaver` de
+> LangGraph. El grafo web persiste en `logs/web_graph_checkpoints.sqlite`,
+> configurable con `DISBOARD_WEB_CHECKPOINT_DB`.
+
 ## Contexto
 
 El dashboard web necesita un flujo multiagente con pausas HITL y persistencia

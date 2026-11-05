@@ -107,6 +107,8 @@ class Edge:
 
     @classmethod
     def cargar(cls, edge_id: str, ruta_edges: Optional[Path] = None) -> "Edge":
+        if not edge_id or Path(edge_id).name != edge_id or edge_id in {".", ".."}:
+            raise FileNotFoundError(f"Edge no encontrado: {edge_id}")
         root = Path(ruta_edges) if ruta_edges else EDGES_ROOT
         ruta = root / edge_id / "edge.json"
         datos = json.loads(ruta.read_text(encoding="utf-8"))

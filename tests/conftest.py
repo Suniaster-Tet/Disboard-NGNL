@@ -8,9 +8,10 @@ import pytest
 
 
 @pytest.fixture
-def tmp_edge(tmp_path: Path) -> dict:
+def tmp_edge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     """Crea un edge temporal con contrato, log y artefactos."""
     edge_dir = tmp_path / "edges" / "edge-test"
+    monkeypatch.setattr("core.edge.EDGES_ROOT", tmp_path / "edges")
     (edge_dir / "artifacts").mkdir(parents=True)
     (edge_dir / "out").mkdir()
     edge_meta = {

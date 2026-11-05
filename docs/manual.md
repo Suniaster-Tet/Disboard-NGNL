@@ -49,7 +49,7 @@ El equipo núcleo es donde reside todo el sistema. No necesita GPU si los modelo
 |---|---|---|
 | Python | 3.11+ | El devcontainer usa 3.12 |
 | Git | 2.40+ | Para clonar el repositorio |
-| Docker + Docker Compose | 24+ | Solo si usas PostgreSQL como checkpointer |
+| Docker + Docker Compose | 24+ | Solo si prefieres ejecutar los servicios en contenedores |
 | LaTeX (TeX Live) | 2024+ | Solo si generas preprints; el devcontainer lo incluye |
 | LibreOffice | 7.6+ | Solo si generas documentos Word; el devcontainer lo incluye |
 
@@ -60,7 +60,6 @@ El equipo núcleo es donde reside todo el sistema. No necesita GPU si los modelo
 | Puerto | Uso | Exposición |
 |---|---|---|
 | 8000 | Servidor web FastAPI | Solo localhost por defecto |
-| 5432 | PostgreSQL (checkpointer) | Solo localhost o red interna de Docker |
 | 22 | SSH (si accedes al Codespace o al núcleo vía SSH) | Según configuración |
 
 ---
@@ -128,10 +127,11 @@ cp .env.example .env
 make healthcheck
 ```
 
-### 4.3 Opción C — Docker Compose (con PostgreSQL)
+### 4.3 Opción C — Docker Compose
 
 ```bash
-# 1. Construir la imagen
+# 1. Preparar el entorno y construir la imagen
+cp .env.example .env
 docker compose build
 
 # 2. Levantar servicios (devcontainer, web, postgres)
@@ -208,7 +208,7 @@ os.environ["GROQ_API_KEY"] = "tu_clave"
 os.environ["TET_SIGNING_KEY"] = "tu_clave"
 ```
 
-**Limitaciones:** sin Docker (PostgreSQL no disponible), sin LaTeX/LibreOffice. Usa `CHECKPOINTER_BACKEND=memory` y `Reporter(use_latex=False)`.
+**Limitaciones:** sin Docker, LaTeX ni LibreOffice. El checkpointer web usa SQLite local.
 
 ### 5.5 VS Code (escritorio o navegador)
 
@@ -328,7 +328,7 @@ ngrok http 8000
 ### 7.2 Checklist de seguridad antes de exponer
 
 - [ ] `TET_SIGNING_KEY` generada y configurada (no la default).
-- [ ] `CHECKPOINTER_BACKEND=postgres` (no memoria volátil) si usas HITL persistente.
+- [ ] `DISBOARD_WEB_CHECKPOINT_DB` apunta a almacenamiento persistente si despliegas en contenedores.
 - [ ] Cloudflare Access configurado para restringir acceso por correo.
 - [ ] Firewall del núcleo permite solo tráfico saliente a Cloudflare (puerto 7844).
 - [ ] `.env` en `.gitignore`.
@@ -389,7 +389,7 @@ disboard rechazar <edge-id>
 |---|---|---|
 | `TET_SIGNING_KEY no configurada` | Falta variable | Añadir a `.env` o Secrets |
 | `Suniaster degradado` | Falta API key | `disboard check-models` indica cuál |
-| `Postgres no disponible` | Docker no arrancó | `docker compose up -d postgres` |
+| `No se puede cargar el dashboard` | El servidor web no está activo | `make web` y revisar `logs/web_graph_checkpoints.sqlite` |
 | `cloudflared: command not found` | No instalado | Instalar desde el `.deb` o binario |
 | `Tunnel no conecta` | Firewall bloquea puerto 7844 | Permitir salida TCP/UDP 7844 |
 | `Tablet no carga el dashboard` | IP incorrecta o firewall local | Verificar IP y que el servidor escuche en `0.0.0.0` |

@@ -49,7 +49,10 @@ class Artifact:
         target_relative: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> "Artifact":
-        target = edge.ruta / "artifacts" / (target_relative or source.name)
+        artifact_root = (edge.ruta / "artifacts").resolve()
+        target = (artifact_root / (target_relative or source.name)).resolve()
+        if not target.is_relative_to(artifact_root):
+            raise ValueError("La ruta del artefacto debe permanecer dentro del edge.")
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target)
         mime, _ = mimetypes.guess_type(str(target))
@@ -63,7 +66,7 @@ class Artifact:
             size_bytes=target.stat().st_size,
             metadata=metadata or {},
         )
-        Log(edge.id).registrar(
+        Log(edge.id, ruta=edge.ruta_log).registrar(
             "artifact_registered",
             {
                 "name": artifact.name,
@@ -100,13 +103,18 @@ class Artifact:
     # ------------------------------------------------------------------ #
     @staticmethod
     def list(edge: Edge) -> List[Dict[str, Any]]:
-        log = Log(edge.id)
+        log = Log(edge.id, ruta=edge.ruta_log)
         events = log.leer_por_evento("artifact_registered")
         return [e.get("detalles", {}) for e in events]
 
     @staticmethod
     def artifact_path(edge_id: str, name: str) -> Path:
-        return Path("edges") / edge_id / "artifacts" / name
+        edge = Edge.cargar(edge_id)
+        artifact_root = (edge.ruta / "artifacts").resolve()
+        path = (artifact_root / name).resolve()
+        if not path.is_relative_to(artifact_root):
+            raise ValueError("La ruta del artefacto debe permanecer dentro del edge.")
+        return path
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
