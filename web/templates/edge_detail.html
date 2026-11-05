@@ -6,6 +6,7 @@
     <form id="new-edge-form">
       <label>Título del proyecto<input name="title" maxlength="120" placeholder="Opcional"></label>
       <label>Idea semilla o solicitud<textarea name="seed" required placeholder="Escribe la solicitud inicial de Tet. Sora preparará un plan para revisión."></textarea></label>
+      <label>Teorías o marcos definidos por Tet<textarea name="theories" placeholder="Uno por línea"></textarea></label>
       <button type="submit">Crear y proponer plan</button>
     </form>
   </section>
@@ -13,6 +14,7 @@
     document.getElementById('new-edge-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const data = Object.fromEntries(new FormData(e.currentTarget));
+      data.theories = data.theories.split('\n').map(item => item.trim()).filter(Boolean);
       const response = await fetch('/edges/new', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
       const result = await response.json();
       if (!response.ok) { document.getElementById('global-status').textContent = result.detail || 'No se pudo crear el edge.'; return; }
@@ -31,6 +33,7 @@
     <h3>Solicitud directa de Tet</h3>
     <form id="edge-request-form" class="panel">
       <label>Nueva instrucción<textarea name="text" required placeholder="Añade contexto, una corrección o una nueva solicitud para este edge."></textarea></label>
+      <label>Teorías o marcos definidos por Tet<textarea name="theories" placeholder="Una por línea. Se guardan con el workflow."></textarea></label>
       <button type="submit">Enviar a Sora</button>
     </form>
     {% if workflow.requests %}<ul>{% for item in workflow.requests %}<li><strong>{{ item.created_at[:10] }}</strong> · {{ item.text }} <span class="badge">{{ item.status }}</span></li>{% endfor %}</ul>{% endif %}
@@ -45,6 +48,7 @@
     <form id="plan-approval-form" class="panel">
       <label>Objetivos, uno por línea<textarea id="plan-objectives">{{ plan.objetivos|join('\n') }}</textarea></label>
       <label>Metas, una por línea<textarea id="plan-goals">{{ plan.metas|join('\n') }}</textarea></label>
+      <label>Teorías o marcos acordados<textarea id="plan-theories">{{ workflow.theories|join('\n') }}</textarea></label>
       <label>Entregables (JSON editable)<textarea id="plan-deliverables">{{ plan.entregables|tojson(indent=2) }}</textarea></label>
       <button type="submit" {% if workflow.plan_approved %}disabled{% endif %}>Aprobar plan y firmar</button>
       {% if workflow.plan_approved %}<span class="meta">Para cambiar un plan aprobado, envía una nueva solicitud y genera otra propuesta.</span>{% endif %}
@@ -97,6 +101,18 @@
           <button type="button" data-post="/api/edges/{{ edge.id }}/deliverables/{{ item.id }}/execute">Ejecutar {{ item.agente_asignado or 'Shiro' }}</button>
           <form class="artifact-upload-form row" data-deliverable="{{ item.id }}"><label>Adjuntar archivo<input type="file" name="file" required></label><button type="submit" class="secondary">Enviar a revisión</button></form>
         </div>
+        {% endif %}
+        {% if workflow.plan_approved %}
+        <form class="template-generation-form panel" data-deliverable="{{ item.id }}" style="margin-top:1rem">
+          <h4>Redactar con plantilla base</h4>
+          <div class="grid">
+            <label>Formato<select name="template"><option value="preprint.tex.j2">Preprint LaTeX</option><option value="report.md.j2">Informe Markdown</option><option value="slides.md.j2">Presentación</option><option value="email.md.j2">Borrador de correo</option></select></label>
+            <label>Título<input name="title" required maxlength="200" placeholder="Título del documento"></label>
+          </div>
+          <label>Enfoque e instrucciones de Tet<textarea name="instructions" required placeholder="Especifica tono, audiencia, contenido y criterios; se usará solo bibliografía y teorías aprobadas."></textarea></label>
+          <button type="submit" class="secondary">Generar borrador para revisión</button>
+          <span class="meta">El correo se guarda como borrador local; no se envía.</span>
+        </form>
         {% endif %}
         {% if item.estado == 'entregado' %}
         <form class="deliverable-decision-form" data-deliverable="{{ item.id }}">
@@ -152,6 +168,7 @@ if (planForm) planForm.addEventListener('submit', async event => {
     const body = {
       objetivos: document.getElementById('plan-objectives').value.split('\n').map(x=>x.trim()).filter(Boolean),
       metas: document.getElementById('plan-goals').value.split('\n').map(x=>x.trim()).filter(Boolean),
+      theories: document.getElementById('plan-theories').value.split('\n').map(x=>x.trim()).filter(Boolean),
       entregables: JSON.parse(document.getElementById('plan-deliverables').value),
     };
     await postJson(`/api/edges/{{ edge.id }}/plan/approve`, body); location.reload();
@@ -175,6 +192,14 @@ document.querySelectorAll('.artifact-upload-form').forEach(form => form.addEvent
     const response = await fetch(`/api/edges/{{ edge.id }}/deliverables/${form.dataset.deliverable}/artifacts`, {method:'POST', body:new FormData(form)});
     const result = await response.json();
     if (!response.ok) throw new Error(result.detail || 'No se pudo cargar el archivo.');
+    location.reload();
+  } catch (error) { statusLine.textContent = error.message; }
+}));
+document.querySelectorAll('.template-generation-form').forEach(form => form.addEventListener('submit', async event => {
+  event.preventDefault();
+  const body = Object.fromEntries(new FormData(form));
+  try {
+    await postJson(`/api/edges/{{ edge.id }}/deliverables/${form.dataset.deliverable}/documents`, body);
     location.reload();
   } catch (error) { statusLine.textContent = error.message; }
 }));

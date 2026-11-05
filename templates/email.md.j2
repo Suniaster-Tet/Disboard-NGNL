@@ -1,0 +1,19 @@
+# {{ title }}
+
+**Para:** {{ recipient_role }}  
+**Asunto:** {{ subject }}  
+**Fecha:** {{ date }}
+
+{{ body }}
+
+{{ signature }}
+
+{% if references %}
+## Referencias aprobadas
+{% for reference in references %}
+- {{ reference.title }} ({{ reference.year }}) · https://doi.org/{{ reference.doi }}
+{% endfor %}
+{% endif %}
+
+---
+*Borrador local para revisión de Tet. Este archivo no se envía automáticamente.*

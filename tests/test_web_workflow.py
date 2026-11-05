@@ -98,6 +98,48 @@ def test_tampered_final_signature_is_not_accepted(tmp_path, monkeypatch):
     assert reopened.edge.estado != "COMPLETO"
 
 
+def test_template_document_uses_approved_context_and_is_audited(tmp_path, monkeypatch):
+    workflow = create_workflow(tmp_path, monkeypatch)
+    workflow.add_request("Analizar el método reproducible.")
+    workflow.set_theories(["Teoría de grafos definida por Tet"])
+    workflow.add_reference(
+        "10.1234/report",
+        {"doi": "10.1234/report", "title": "Método documentado", "authors": ["A. Autor"],
+         "year": 2026, "journal": "Journal", "source": "crossref"},
+        proposer="Tet",
+    )
+    workflow.review_reference("10.1234/report", "approve")
+    workflow.generate_plan()
+    workflow.approve_plan()
+    captured = {}
+
+    def fake_invoke(agent, prompt):
+        captured["agent"] = agent
+        captured["prompt"] = prompt
+        return {
+            "text": json.dumps({
+                "summary": "El método se reportó en 10.1234/report.",
+                "sections": [{"title": "Métodos", "content": "Usar el método aprobado."}],
+            }),
+            "provider": "groq",
+            "model": "free-model",
+        }
+
+    monkeypatch.setattr("tools.template_assistant.invoke_agent", fake_invoke)
+    state = workflow.generate_document(
+        "E3", "report.md.j2", "Informe de método", "Explicar método y límites."
+    )
+
+    artifact = state["artifacts"]["E3"][-1]
+    content = Path(artifact["path"]).read_text(encoding="utf-8")
+    assert captured["agent"] == "stephanie"
+    assert "Teoría de grafos definida por Tet" in captured["prompt"]
+    assert "10.1234/report" in captured["prompt"]
+    assert "10.1234/report" in content
+    assert artifact["metadata"]["model_provenance"]["model"] == "free-model"
+    assert state["deliverables"][2]["estado"] == "entregado"
+
+
 def test_final_approval_refuses_artifact_changed_after_review(tmp_path, monkeypatch):
     workflow = create_workflow(tmp_path, monkeypatch)
     workflow.add_request("Crear un cálculo seguro.")
@@ -152,9 +194,16 @@ def test_http_flow_from_direct_request_to_final_approval(tmp_path, monkeypatch):
     )
     client = TestClient(server.app, client=("127.0.0.1", 8000))
 
-    response = client.post("/api/requests", json={"text": "Investigar desde el dashboard."})
+    response = client.post(
+        "/api/requests",
+        json={
+            "text": "Investigar desde el dashboard.",
+            "theories": ["Teoría de grafos definida por Tet"],
+        },
+    )
     assert response.status_code == 200
     edge_id = response.json()["edge_id"]
+    assert response.json()["workflow"]["theories"] == ["Teoría de grafos definida por Tet"]
 
     suggestions = client.post(
         f"/api/edges/{edge_id}/bibliography/search",

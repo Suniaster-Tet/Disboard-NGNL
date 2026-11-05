@@ -31,6 +31,14 @@ author: "{{ author | default('Stephanie Dola') }}"
 ---
 {% endfor %}
 
+{% if references %}
+# Referencias aprobadas
+{% for reference in references %}
+- {{ reference.title }} ({{ reference.year }}) · {{ reference.doi }}
+{% endfor %}
+---
+{% endif %}
+
 # ¡Gracias!
 ### ¿Preguntas o Comentarios para Tet?
 

@@ -79,9 +79,54 @@ class SuniasterRouter:
 
         return self._try(agent, provider, model)
 
+    def invoke_for(self, agent: str, prompt: str) -> tuple[Any, Dict[str, str]]:
+        """Invoca el primer modelo disponible respetando el límite de costo."""
+        agents = self.config.get("agents", {})
+        if agent not in agents:
+            raise KeyError(f"Agente no configurado en Suniaster: {agent}")
+        entry = agents[agent]
+        policy = self._policy()
+        provider = entry["provider"]
+        model_name = entry.get("model")
+        if "wolfram" in entry.get("tools", []) and not os.getenv("WOLFRAM_API_KEY"):
+            provider = policy.get("wolfram_fallback_provider", "google")
+            model_name = policy.get("wolfram_fallback_model", "gemini-2.5-pro")
+
+        candidates = [
+            (provider, model_name),
+            (entry.get("fallback_provider"), entry.get("fallback_model")),
+            (policy.get("fallback_free", "groq"), None),
+        ]
+        attempted: set[str] = set()
+        errors: list[str] = []
+        for candidate, candidate_model in candidates:
+            if not candidate or candidate in attempted:
+                continue
+            attempted.add(candidate)
+            provider_conf = self.config.get("providers", {}).get(candidate, {})
+            if not policy.get("allow_paid", False) and not provider_conf.get("free_tier", False):
+                continue
+            adapter = provider_conf.get("type", candidate)
+            try:
+                selected_model = candidate_model or self._model_or_default(candidate)
+                model = create_model(adapter, selected_model)
+                response = model.invoke(prompt)
+                return response, {
+                    "agent": agent,
+                    "provider": candidate,
+                    "model": selected_model,
+                    "adapter": adapter,
+                }
+            except Exception as error:
+                errors.append(f"{candidate}:{type(error).__name__}")
+        detail = ", ".join(errors) if errors else "sin proveedores autorizados"
+        raise ProviderUnavailable(f"No hay modelo disponible para {agent} ({detail}).")
+
     def _try(self, agent: str, provider: str, model: Optional[str]) -> Any:
         try:
-            return create_model(provider, model or self._model_or_default(provider))
+            provider_conf = self.config.get("providers", {}).get(provider, {})
+            adapter = provider_conf.get("type", provider)
+            return create_model(adapter, model or self._model_or_default(provider))
         except (ProviderUnavailable, ValueError) as e:
             entry = self.config["agents"][agent]
             fb_provider = entry.get("fallback_provider")

@@ -9,6 +9,9 @@ from unittest.mock import patch
 from agents.fiel_nirvalen.agent import FielNirvalen
 from console.main import build_parser
 from console.main import main as console_main
+from core.edge import Edge
+from elkia.registry import ElkiaRegistry
+from web.workflow import EdgeWorkflow
 
 
 class CliTests(unittest.TestCase):
@@ -74,6 +77,33 @@ class FreeRouterTests(unittest.TestCase):
     @unittest.skip("Pendiente: método en console")
     def test_router(self):
         pass
+
+
+def test_console_work_generates_a_document_from_template(tmp_path, monkeypatch):
+    import console.commands as commands
+
+    monkeypatch.setenv("TET_SIGNING_KEY", "console-template-test-key-" + "x" * 32)
+    edges_root = tmp_path / "edges"
+    monkeypatch.setattr("core.edge.EDGES_ROOT", edges_root)
+    registry = ElkiaRegistry(ruta=edges_root / "elkia_registry.json")
+    monkeypatch.setattr("web.workflow.ElkiaRegistry", lambda: registry)
+    edge = Edge.crear_desde_semilla(
+        None, titulo="Console template", ruta_edges=edges_root
+    )
+    registry.registrar(edge)
+    workflow = EdgeWorkflow(edge)
+    workflow.add_request("Crear un informe reproducible.")
+    workflow.generate_plan()
+    workflow.approve_plan()
+
+    answers = iter(["11", "E3", "2", "Informe de consola", "Explicar métodos y límites.", "0"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+
+    assert commands.work(edge.id) == 0
+    updated = EdgeWorkflow(Edge.cargar(edge.id)).snapshot()
+    artifact = updated["artifacts"]["E3"][-1]
+    assert Path(artifact["path"]).suffix == ".md"
+    assert updated["deliverables"][2]["estado"] == "entregado"
 
 
 if __name__ == "__main__":

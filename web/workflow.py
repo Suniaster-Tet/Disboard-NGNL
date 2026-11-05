@@ -17,6 +17,8 @@ from core.edge import Edge
 from core.hitl import firmar_aprobacion, verificar_firma_tet
 from core.log import Log
 from elkia.registry import ElkiaRegistry
+from tools.document_generator import DocumentGenerator
+from tools.template_assistant import TemplateAssistant
 
 
 def _utcnow() -> str:
@@ -27,6 +29,7 @@ def _initial_state() -> dict[str, Any]:
     return {
         "requests": [],
         "bibliography": [],
+        "theories": [],
         "plan": None,
         "plan_approved": False,
         "deliverables": [],
@@ -47,6 +50,7 @@ class EdgeWorkflow:
             self._save()
         else:
             self.state = json.loads(self.path.read_text(encoding="utf-8"))
+            self.state.setdefault("theories", [])
 
     def _save(self) -> None:
         temp_path = self.path.with_suffix(".json.tmp")
@@ -155,6 +159,30 @@ class EdgeWorkflow:
         self._save()
         return request
 
+    def set_theories(self, theories: list[str]) -> list[str]:
+        normalized = self._normalize_theories(theories)
+        self.state["theories"] = normalized
+        self.log.registrar("tet_theories_updated", {"theories": normalized}, agente="Tet")
+        self._save()
+        return normalized
+
+    @staticmethod
+    def _normalize_theories(theories: list[str]) -> list[str]:
+        if not isinstance(theories, list) or not all(isinstance(item, str) for item in theories):
+            raise ValueError("Las teorías deben ser una lista de textos.")
+        normalized = []
+        for theory in theories:
+            value = theory.strip()
+            if not value:
+                continue
+            if len(value) > 2000:
+                raise ValueError("Cada teoría o marco definido por Tet debe tener 2000 caracteres o menos.")
+            if value not in normalized:
+                normalized.append(value)
+        if len(normalized) > 30:
+            raise ValueError("El límite es de 30 teorías o marcos por edge.")
+        return normalized
+
     def generate_plan(self, request_text: str | None = None) -> dict[str, Any]:
         text = request_text or (
             self.state["requests"][-1]["text"] if self.state["requests"]
@@ -165,7 +193,10 @@ class EdgeWorkflow:
             raise ValueError("Añade una solicitud de Tet antes de generar el plan.")
         approved_refs = self._approved_references()
         plan = SoraStrategist(edge_id=self.edge.id).plan_edge(
-            self.edge.id, text, bibliography=approved_refs
+            self.edge.id,
+            text,
+            bibliography=approved_refs,
+            theories=self.state.get("theories", []),
         )
         self.state["plan"] = plan
         self.state["deliverables"] = [
@@ -177,7 +208,9 @@ class EdgeWorkflow:
         self.log.registrar(
             "sora_plan_proposed",
             {"objectives": plan["objetivos"], "deliverables": len(plan["entregables"]),
-             "approved_references": [ref.get("doi") for ref in approved_refs]},
+             "approved_references": [ref.get("doi") for ref in approved_refs],
+             "theories": self.state.get("theories", []),
+             "model_provenance": plan.get("model_provenance", {})},
             agente="Sora",
         )
         self._save()
@@ -188,9 +221,12 @@ class EdgeWorkflow:
             raise ValueError("Sora aún no ha propuesto un plan.")
         edits = edits or {}
         plan = dict(self.state["plan"])
-        for field in ("objetivos", "metas", "entregables"):
+        for field in ("objetivos", "metas", "entregables", "theories"):
             if field in edits:
                 plan[field] = edits[field]
+        plan["theories"] = self._normalize_theories(
+            plan.get("theories", self.state.get("theories", []))
+        )
         if not plan["objetivos"] or not plan["metas"] or not plan["entregables"]:
             raise ValueError("El plan requiere objetivos, metas y entregables.")
         deliverables = []
@@ -199,6 +235,7 @@ class EdgeWorkflow:
                 raise ValueError("Cada entregable requiere id y descripción.")
             deliverables.append({**item, "estado": "pendiente", "observaciones": ""})
         plan["entregables"] = deliverables
+        self.state["theories"] = plan["theories"]
         contract = Contract.desde_plan_sora(self.edge, plan)
         contract.validate_errors = contract.validar()
         if contract.validate_errors:
@@ -285,6 +322,7 @@ class EdgeWorkflow:
         item = self._deliverable(deliverable_id)
         agent = item.get("agente_asignado", "Shiro")
         created: list[Artifact] = []
+        model_provenance: dict[str, Any] = {}
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_root = Path(temp_dir)
             if agent == "Jibril":
@@ -296,14 +334,27 @@ class EdgeWorkflow:
                 source.write_text(content, encoding="utf-8")
                 created.append(self._register_artifact(source, item, agent))
             elif agent == "Shiro":
-                code, test_code = ShiroAnalyst(edge_id=self.edge.id).generate_tdd_code(
-                    item["descripcion"]
+                shiro = ShiroAnalyst(edge_id=self.edge.id)
+                code, test_code = shiro.generate_tdd_code(
+                    item["descripcion"],
+                    bibliography=self._approved_references(),
+                    theories=self.state.get("theories", []),
                 )
+                model_provenance = getattr(shiro, "_generation_metadata", {})
                 safe_id = "".join(c if c.isalnum() or c in "- _" else "_" for c in deliverable_id)
                 for filename, content in ((f"{safe_id}.py", code), (f"{safe_id}_test.py", test_code)):
                     source = temp_root / filename
                     source.write_text(content, encoding="utf-8")
-                    created.append(self._register_artifact(source, item, agent))
+                    created.append(self._register_artifact(
+                        source,
+                        item,
+                        agent,
+                        {
+                            "model_provenance": model_provenance,
+                            "approved_references": [ref.get("doi") for ref in self._approved_references()],
+                            "theories": self.state.get("theories", []),
+                        },
+                    ))
             elif agent in {"Chlammy", "Chlammy Zell"}:
                 contract = Contract.desde_plan_sora(self.edge, self.state["plan"])
                 result = ChlammyAuditor(edge_id=self.edge.id).verify_contract_alignment(
@@ -323,7 +374,9 @@ class EdgeWorkflow:
         self.log.registrar(
             "deliverable_submitted",
             {"deliverable_id": deliverable_id, "agent": agent,
-             "artifacts": [artifact.name for artifact in created]},
+             "artifacts": [artifact.name for artifact in created],
+             "model_provenance": model_provenance,
+             "approved_references": [ref.get("doi") for ref in self._approved_references()]},
             agente=agent,
         )
         self._save()
@@ -354,12 +407,99 @@ class EdgeWorkflow:
         self._refresh_edge()
         return self.snapshot()
 
-    def _register_artifact(self, source: Path, deliverable: dict[str, Any], agent: str) -> Artifact:
+    def generate_document(
+        self,
+        deliverable_id: str,
+        template_name: str,
+        title: str,
+        instructions: str,
+    ) -> dict[str, Any]:
+        self._require_plan_approval()
+        item = self._deliverable(deliverable_id)
+        references = self._approved_references()
+        context, provenance = TemplateAssistant().generate_context(
+            template_name,
+            title.strip(),
+            instructions.strip(),
+            references,
+            self.state.get("theories", []),
+        )
+        output_names = {
+            "preprint.tex.j2": "preprint.tex",
+            "report.md.j2": "report.md",
+            "slides.md.j2": "slides.md",
+            "email.md.j2": "email.md",
+        }
+        if template_name not in output_names:
+            raise ValueError(f"Plantilla no habilitada: {template_name}")
+        agent = "Fiel Nirvalen" if template_name == "email.md.j2" else "Stephanie Dola"
+        created: list[Artifact] = []
+        template_dir = Path(__file__).resolve().parents[1] / "templates"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output_path = Path(temp_dir) / output_names[template_name]
+            result = DocumentGenerator(template_dir=template_dir).render_template(
+                template_name, context, output_path
+            )
+            if result.get("status") != "success":
+                raise ValueError(result.get("message", "No se pudo renderizar la plantilla."))
+            metadata = {
+                "deliverable_id": deliverable_id,
+                "template": template_name,
+                "model_provenance": provenance,
+                "approved_references": [ref.get("doi") for ref in references],
+                "theories": self.state.get("theories", []),
+                "draft_only": template_name == "email.md.j2",
+            }
+            created.append(Artifact.register(
+                self.edge, output_path, agent=agent, metadata=metadata
+            ))
+            if template_name == "preprint.tex.j2" and references:
+                bibliography_path = Path(temp_dir) / "references.bib"
+                bibliography_path.write_text(
+                    JibrilScientific(edge_id=self.edge.id).export_bibtex(references),
+                    encoding="utf-8",
+                )
+                created.append(Artifact.register(
+                    self.edge,
+                    bibliography_path,
+                    agent="Jibril",
+                    metadata={**metadata, "kind": "bibliography"},
+                ))
+
+        item["estado"] = "entregado"
+        item.pop("approval", None)
+        item["entregado_en"] = _utcnow()
+        self.state["artifacts"].setdefault(deliverable_id, []).extend(
+            artifact.to_dict() for artifact in created
+        )
+        self.log.registrar(
+            "template_document_generated",
+            {
+                "deliverable_id": deliverable_id,
+                "template": template_name,
+                "artifacts": [artifact.name for artifact in created],
+                "model_provenance": provenance,
+                "approved_references": [ref.get("doi") for ref in references],
+                "theories": self.state.get("theories", []),
+            },
+            agente=agent,
+        )
+        self._save()
+        self._refresh_edge()
+        return self.snapshot()
+
+    def _register_artifact(
+        self,
+        source: Path,
+        deliverable: dict[str, Any],
+        agent: str,
+        extra_metadata: dict[str, Any] | None = None,
+    ) -> Artifact:
         return Artifact.register(
             self.edge,
             source,
             agent=agent,
-            metadata={"deliverable_id": deliverable["id"]},
+            metadata={"deliverable_id": deliverable["id"], **(extra_metadata or {})},
         )
 
     def review_deliverable(

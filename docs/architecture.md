@@ -1,86 +1,70 @@
 # Arquitectura de Disboard-NGNL
 
-**Versión:** 1.0.0
-**Ecosistema:** Disboard-NGNL · Suniaster Engine
+## Alcance actual
 
-## 1. Visión general
+El usuario **Tet** trabaja mediante dos interfaces sobre el mismo workflow por
+edge: la consola (`disboard work`) y el dashboard (`web/server.py`). Ambas
+persisten solicitudes, plan, referencias, entregables, aprobaciones y artefactos
+en `edges/<id>/`. El grafo LangGraph es un motor auxiliar separado; no es la
+persistencia del workflow del dashboard.
 
-Disboard-NGNL es un marco multiagente para desarrollo de software, investigación
-científica y planificación. Opera bajo la soberanía de **Tet** (el usuario)
-mediante un bucle HITL con firma HMAC-SHA256, orquestado por **Stephanie Dola**
-y enrutado por **Suniaster**.
+Los agentes web actuales usan implementaciones deterministas y scaffolds. La
+configuración de proveedores de Suniaster existe, pero el workflow web todavía
+no inyecta esos modelos en Sora o Shiro. No se debe presentar generación con LLM,
+ejecución automática de código o auditoría avanzada como capacidades activas.
 
-### Principios rectores
-
-- **Auditabilidad:** cada paso del grafo registra eventos en `logs/graph_trace.jsonl`.
-- **Reproducibilidad:** semillas, versiones de modelos y hashes quedan en `core/checkpointer.py`.
-- **Spec-First & TDD:** ningún código se escribe sin `spec.md` aprobado y pruebas.
-- **Doubt-Driven Review:** Chlammy ejerce revisión adversarial antes del veredicto de Tet.
-- **Privacidad local-first:** operaciones sensibles se ejecutan en el host.
-
-## 2. Diagrama de flujo del grafo LangGraph
-
-El grafo web vive en `web/graph.py` y sigue el patrón supervisor. La aprobación
-HITL se gestiona con `interrupt()` y `WebCheckpointer` (que delega en
-`core/checkpointer.py`).
+## Interfaces y persistencia
 
 ```mermaid
-flowchart TD
-    IN["Tet: solicitud o edge activo"] --> SUPERVISOR["Sora: supervisor"]
-    SUPERVISOR --> ROUTE{"Enrutar por entregable"}
-    ROUTE -->|bibliografía| JIBRIL["Jibril"]
-    ROUTE -->|ejecución técnica| SHIRO["Shiro + Izuna"]
-    ROUTE -->|auditoría| CHLAMMY["Chlammy"]
-    JIBRIL --> SUPERVISOR
-    SHIRO --> SUPERVISOR
-    CHLAMMY --> SUPERVISOR
-    SUPERVISOR --> DRAFT["Borrador en memoria"]
-    DRAFT --> HITL{"HITL: Tet aprueba"}
-    HITL -->|aprobar| RESP["Respuesta final"]
-    HITL -->|modificar o rechazar| OBS["Observaciones → Sora"]
-    OBS --> SUPERVISOR
-    HITL -.->|interrupt/resume| CKPT[("WebCheckpointer<br/>→ core/checkpointer.py")]
-    CKPT -.-> HITL
+flowchart LR
+        T["Tet"] --> CLI["Consola disboard"]
+        T --> UI["Dashboard FastAPI"]
+        CLI --> WF["EdgeWorkflow compartido"]
+        UI --> WF
+        WF --> EDGE["workflow.json"]
+        WF --> CONTRACT["contract.md"]
+        WF --> FILES["artifacts/ + SHA-256"]
+        WF --> LOG["log.jsonl"]
+        WF --> REG["Elkia registry"]
+        UI --> GRAPH["Grafo LangGraph auxiliar"]
+        GRAPH --> SQLITE["SqliteSaver<br/>DISBOARD_WEB_CHECKPOINT_DB"]
 ```
-## 3. Componentes
 
-| Componente | Responsabilidad |
+El diagrama del proceso HITL y el detalle de agentes están en §2 de `README.md`.
+
+## Seguridad y auditoría
+
+- Las aprobaciones de plan, bibliografía, entregables y cierre se firman con
+    HMAC-SHA256 y `TET_SIGNING_KEY` (mínimo 32 bytes aleatorios).
+- Al continuar y cerrar, el workflow verifica las firmas y recalcula SHA-256 de
+    los artefactos activos. Las rutas de artefactos se restringen al directorio del
+    edge; un nombre ya usado no sobrescribe bytes previos.
+- Las conexiones remotas requieren Basic Auth y HTTPS. Detrás de un proxy,
+    `DISBOARD_WEB_TRUST_PROXY_HEADERS` solo se habilita cuando el origen está
+    aislado y el proxy de confianza reenvía `X-Forwarded-Proto`.
+- Las mutaciones rechazan orígenes ajenos y solicitudes `cross-site`; el
+    middleware añade cabeceras CSP, `nosniff`, `DENY` y no-cache.
+- Los logs son append-only por el flujo normal, no criptográficamente
+    inmutables ante quien controle el host. La aplicación no cifra archivos ni
+    checkpoints en reposo; el sistema operativo y los backups son parte del límite
+    de confianza.
+- El filtro `privacy/filters.py` solo protege llamadas que lo invocan. La búsqueda
+    libre actual filtra la consulta antes de Crossref; no es un DLP universal.
+
+## Módulos
+
+| Módulo | Responsabilidad actual |
 |---|---|
-| `core/` | Tipos compartidos: `Edge`, `Contract`, `Log`, `Artifact`, `HITL`, `Checkpointer`, `Plugins`, `OverallState`. |
-| `elkia/` | Registro de edges, reglas, estado y dashboard táctico. |
-| `suniaster/` | Enrutamiento de modelos (`SuniasterRouter`) y actualización de proveedores (`SuniasterUpdater`). |
-| `agents/` | Código de cada agente (Sora, Chlammy, Shiro, Izuna, Dola, Fiel, Jibril). |
-| `skills/` | Instrucciones de rol de cada agente (`SKILL.md`) y metodologías. |
-| `console/` | Consola HITL con archivos (`main.py`, `commands.py`, `presentation.py`). |
-| `web/` | Servidor FastAPI, grafo LangGraph, dashboard HTML y plantillas. |
-| `privacy/` | Filtros de privacidad y política de prompts. |
-| `tools/` | Utilidades: reportería, catálogo de datos, PDF, document generator, STT/TTS. |
-| `templates/` | Plantillas Jinja2 para LaTeX, Markdown y Marp. |
-| `disboard_ext/` | Plugins de extensión (almacenamiento local de artefactos). |
+| `core/` | Edge, contrato, firmas HMAC, logs, artefactos y plugins compartidos. |
+| `web/workflow.py` | Transiciones HITL persistentes y coordinador común de consola/web. |
+| `web/security.py` | Autenticación remota, HTTPS/proxy, CSRF y cabeceras. |
+| `web/` | API FastAPI, dashboard Jinja2 y grafo LangGraph auxiliar con `SqliteSaver`. |
+| `console/` | CLI, menú interactivo y operaciones sobre el mismo `EdgeWorkflow`. |
+| `elkia/` | Registro local de edges, reglas y métricas tácticas. |
+| `agents/` | Lógica determinista actual y conectores bibliográficos/de ejecución. |
+| `suniaster/` | Configuración y adaptadores de modelos; no conectados al workflow web actual. |
+| `privacy/` | Filtros explícitos y política de uso de prompts. |
+| `disboard_ext/` | Plugin del almacén local de artefactos. |
 
-## 4. Flujo de datos
-
-1. Tet → idea semilla → `core/edge.py` crea el edge.
-2. Sora → plan → `core/contract.py` → Tet aprueba → `core/hitl.py` firma.
-3. Suniaster → asigna modelo por agente → `suniaster/router.py`.
-4. Shiro / Jibril / Izuna → ejecutan → `core/artifact.py` registra.
-5. Chlammy → audita → `core/log.py` registra.
-6. Tet → veredicto HITL → `core/hitl.py` → cierre o rollback.
-
-## 5. Privacidad
-
-- Filtros centralizados en `privacy/filters.py` (con `PRIVACY_STRICT`).
-- Política operativa en `privacy/prompts_policy.md`.
-- Documento arquitectónico en `docs/privacy.md`.
-- Fiel Nirvalen reexporta el filtro central en `agents/fiel_nirvalen/privacy_filter.py`.
-
-## 6. Plataformas / núcleo
-
-| Elemento | Rol | Analogía NGNL |
-| :--- | :--- | :--- |
-| **Elkia** | Entorno de trabajo (consola, web, base de datos) | Reino de Elkia |
-| **Suniaster** | Enrutador y actualizador de modelos de IA | Guardián del Exeed Registry |
-
-## 7. Estructura del repositorio
-
-Ver §6 del `README.md` para el árbol completo.
+Ver [`docs/manual.md`](manual.md), [`docs/privacy.md`](privacy.md) y §2 de
+[`README.md`](../README.md) para operación, seguridad y diagramas detallados.

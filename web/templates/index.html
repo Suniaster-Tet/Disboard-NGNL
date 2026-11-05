@@ -18,6 +18,7 @@
     <h2>Solicitud directa de Tet</h2>
     <form id="direct-request-form">
       <label>Solicitud<textarea name="text" required placeholder="Describe libremente lo que necesitas. Se guardará en el edge y Sora preparará un plan para revisión."></textarea></label>
+      <label>Teorías o marcos definidos por Tet<textarea name="theories" placeholder="Una teoría, marco o principio por línea. Solo estos y las referencias autorizadas se pasan al modelo."></textarea></label>
       <label>Continuar en un edge<select name="edge_id"><option value="">Crear edge nuevo</option>{% for edge in edges %}<option value="{{ edge.id }}">{{ edge.titulo }}</option>{% endfor %}</select></label>
       <label>Título del edge (opcional)<input name="title" maxlength="120"></label>
       <button type="submit">Enviar solicitud</button>
@@ -73,6 +74,7 @@
 document.getElementById('direct-request-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const form = Object.fromEntries(new FormData(event.currentTarget));
+  form.theories = form.theories.split('\n').map(item => item.trim()).filter(Boolean);
   try {
     const response = await fetch('/api/requests', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(form)});
     const result = await response.json();

@@ -1,11 +1,15 @@
 """Shiro — Analista Lógico (código y cálculos)."""
 from __future__ import annotations
 
+import ast
+import json
 import os
+import re
 from typing import Any, Dict, List, Tuple
 
 from agents.base import Agent
 from core.state_schema import OverallState
+from suniaster.inference import ModelUnavailable, invoke_agent
 
 try:
     from agents.shiro.wolfram_client import WolframClient, WolframUnavailable
@@ -23,19 +27,93 @@ class ShiroAnalyst(Agent):
     # ------------------------------------------------------------------ #
     # Generación de código
     # ------------------------------------------------------------------ #
-    def generate_tdd_code(self, specification: str) -> Tuple[str, str]:
+    def generate_tdd_code(
+        self,
+        specification: str,
+        bibliography: List[Dict[str, Any]] | None = None,
+        theories: List[str] | None = None,
+    ) -> Tuple[str, str]:
+        """Genera TDD con modelo configurado o devuelve un scaffold no ejecutable."""
+        bibliography = bibliography or []
+        theories = theories or []
+        references = [
+            {"doi": item.get("doi"), "title": item.get("title"), "year": item.get("year")}
+            for item in bibliography
+        ]
+        prompt = (
+            "Diseña una implementación Python y pruebas unittest en JSON válido con "
+            "claves code y test, ambas strings. No ejecutes código ni inventes resultados. "
+            "Documenta supuestos, límites y qué afirmaciones se apoyan en cada DOI. "
+            "Respeta estrictamente la especificación, teorías y referencias proporcionadas.\n"
+            f"ESPECIFICACIÓN: {specification}\n"
+            f"TEORÍAS APROBADAS POR TET: {json.dumps(theories, ensure_ascii=False)}\n"
+            f"REFERENCIAS APROBADAS POR TET: {json.dumps(references, ensure_ascii=False)}"
+        )
+        try:
+            generated = invoke_agent("shiro", prompt)
+        except ModelUnavailable as error:
+            self._generation_metadata = {
+                "mode": "scaffold_fallback", "reason": str(error), "provider": None, "model": None
+            }
+            self.register("shiro_model_fallback", self._generation_metadata, level="WARNING")
+            return self._fallback_tdd_code(specification)
+        if generated is None:
+            self._generation_metadata = {
+                "mode": "scaffold_fallback", "reason": "llm_disabled", "provider": None, "model": None
+            }
+            return self._fallback_tdd_code(specification)
+        try:
+            result = json.loads(generated["text"])
+            code, test_code = result["code"], result["test"]
+            if not isinstance(code, str) or not isinstance(test_code, str):
+                raise ValueError("El modelo debe devolver code y test como texto.")
+            if len(code) > 200_000 or len(test_code) > 200_000:
+                raise ValueError("El código generado supera el límite de tamaño.")
+            ast.parse(code)
+            ast.parse(test_code)
+            allowed_dois = {
+                str(item.get("doi", "")).lower() for item in bibliography if item.get("doi")
+            }
+            cited_dois = {
+                doi.lower().rstrip(".,;)")
+                for doi in re.findall(
+                    r"10\.\d{4,9}/[A-Za-z0-9._;()/:+-]+", code + "\n" + test_code, re.IGNORECASE
+                )
+            }
+            if not cited_dois.issubset(allowed_dois):
+                raise ValueError("El código cita DOI no autorizados por Tet.")
+        except (json.JSONDecodeError, KeyError, TypeError, ValueError, SyntaxError) as error:
+            self._generation_metadata = {
+                "mode": "scaffold_fallback",
+                "reason": f"invalid_model_output:{type(error).__name__}",
+                **{key: generated[key] for key in ("provider", "model") if key in generated},
+            }
+            self.register("shiro_model_output_rejected", self._generation_metadata, level="WARNING")
+            return self._fallback_tdd_code(specification)
+        self._generation_metadata = {
+            "mode": "model",
+            **{key: generated[key] for key in ("provider", "model") if key in generated},
+            "references": [item.get("doi") for item in bibliography if item.get("doi")],
+            "theories": theories,
+        }
+        self.register("shiro_model_output_accepted", self._generation_metadata)
+        return code, test_code
+
+    @staticmethod
+    def _fallback_tdd_code(specification: str) -> Tuple[str, str]:
+        safe_specification = json.dumps(specification, ensure_ascii=True)
         code = (
-            "# Implementación generada por Shiro\n"
-            "def solve_algorithm(x: float) -> float:\n"
-            "    return x ** 2 + 1.0\n"
+            "def solve_algorithm(*args, **kwargs):\n"
+            f"    \\\"\\\"\\\"TODO: implement the approved specification {safe_specification}.\\\"\\\"\\\"\n"
+            "    raise NotImplementedError(\"No free-tier model response is available; implement and review this scaffold.\")\n"
         )
         test_code = (
-            "# Test unitario generado por Shiro\n"
-            "import unittest\n"
-            "from app import solve_algorithm\n\n"
-            "class TestShiroLogic(unittest.TestCase):\n"
-            "    def test_solution(self):\n"
-            "        self.assertEqual(solve_algorithm(2.0), 5.0)\n"
+            "import unittest\n\n"
+            "from implementation import solve_algorithm\n\n\n"
+            "class TestApprovedSpecification(unittest.TestCase):\n"
+            "    def test_implementation_is_pending(self):\n"
+            "        with self.assertRaises(NotImplementedError):\n"
+            "            solve_algorithm()\n"
         )
         return code, test_code
 
@@ -94,7 +172,11 @@ class ShiroAnalyst(Agent):
         for d in deliverables:
             if d.get("agente_asignado") != "Shiro":
                 continue
-            code, test_code = self.generate_tdd_code(d.get("descripcion", ""))
+            code, test_code = self.generate_tdd_code(
+                d.get("descripcion", ""),
+                bibliography=state.get("bibliography", []),
+                theories=state.get("action_details", {}).get("theories", []),
+            )
             provider = "wolfram" if self.wolfram_available() else "google"
             if provider != "wolfram":
                 self.record_provider_used(provider, reason="missing_wolfram_key")
@@ -104,6 +186,7 @@ class ShiroAnalyst(Agent):
                 "test": test_code,
                 "provider_used": provider,
                 "wolfram_available": self.wolfram_available(),
+                "model_provenance": getattr(self, "_generation_metadata", {}),
             })
 
         state["artifacts"] = state.get("artifacts", []) + [r["entregable"] for r in results]

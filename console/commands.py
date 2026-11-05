@@ -104,6 +104,7 @@ def work(edge_id: str) -> int:
      "8": "Adjuntar archivo a un entregable",
      "9": "Revisar entregable",
      "10": "Decidir cierre final",
+    "11": "Generar documento desde plantilla",
      "0": "Salir",
  }
  while True:
@@ -158,6 +159,21 @@ def work(edge_id: str) -> int:
              observations = Presentation.ask_observations() if verdict != "aprobar" else ""
              decision = {"aprobar": "approve", "modificar": "modify", "rechazar": "reject"}[verdict]
              workflow.decide_final(decision, observations)
+         elif choice == "11":
+             deliverable_id = input("ID del entregable: ").strip()
+             templates = {
+                 "1": "preprint.tex.j2",
+                 "2": "report.md.j2",
+                 "3": "slides.md.j2",
+                 "4": "email.md.j2",
+             }
+             print("  1) Preprint LaTeX  2) Informe Markdown  3) Slides  4) Borrador de correo")
+             template_name = templates.get(input("Plantilla: ").strip())
+             if not template_name:
+                 raise ValueError("Plantilla no válida.")
+             title = input("Título: ").strip()
+             instructions = input("Enfoque e instrucciones de Tet: ").strip()
+             workflow.generate_document(deliverable_id, template_name, title, instructions)
          else:
              print("Opción no válida.")
              continue

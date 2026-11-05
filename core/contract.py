@@ -19,6 +19,8 @@ class Contract:
     objetivos: List[str] = field(default_factory=list)
     metas: List[str] = field(default_factory=list)
     entregables: List[Dict[str, Any]] = field(default_factory=list)
+    theories: List[str] = field(default_factory=list)
+    bibliography: List[Dict[str, Any]] = field(default_factory=list)
     aprobado_por_tet: bool = False
     aprobado_en: str = ""
     creado_en: str = field(default_factory=_utcnow)
@@ -36,6 +38,8 @@ class Contract:
             objetivos=list(plan.get("objetivos", [])),
             metas=list(plan.get("metas", [])),
             entregables=list(plan.get("entregables", [])),
+            theories=list(plan.get("theories", [])),
+            bibliography=list(plan.get("bibliography", [])),
         )
 
     # ------------------------------------------------------------------ #
@@ -83,6 +87,17 @@ class Contract:
             "## Metas",
             *[f"- {m}" for m in self.metas],
             "",
+            "## Teorías y marcos definidos por Tet",
+            *[f"- {theory}" for theory in self.theories],
+            "",
+            "## Bibliografía aprobada por Tet",
+            *[
+                f"- `{item.get('doi', '')}` — {item.get('title', '')}"
+                + (f" ({item.get('year')})" if item.get("year") else "")
+                + (f" · fuente: {item.get('source')}" if item.get("source") else "")
+                for item in self.bibliography
+            ],
+            "",
             "## Entregables",
             *[f"- `{e.get('id', '?')}` — {e.get('descripcion', '')}"
               for e in self.entregables],
@@ -101,6 +116,8 @@ class Contract:
         objetivos: List[str] = []
         metas: List[str] = []
         entregables: List[Dict[str, Any]] = []
+        theories: List[str] = []
+        bibliography: List[Dict[str, Any]] = []
         aprobado_por_tet = False
         aprobado_en = ""
         seccion = None
@@ -117,6 +134,12 @@ class Contract:
                 objetivos.append(linea[2:])
             elif linea.startswith("- ") and seccion == "metas":
                 metas.append(linea[2:])
+            elif linea.startswith("- ") and seccion == "teorías y marcos definidos por tet":
+                theories.append(linea[2:])
+            elif linea.startswith("- `") and seccion == "bibliografía aprobada por tet":
+                doi, _, citation = linea[3:].partition("` — ")
+                title, _, rest = citation.partition(" · fuente: ")
+                bibliography.append({"doi": doi, "title": title, "source": rest})
             elif linea.startswith("- `") and seccion == "entregables":
                 partes = linea[2:].split("` — ", 1)
                 entregables.append({
@@ -128,6 +151,8 @@ class Contract:
             objetivos=objetivos,
             metas=metas,
             entregables=entregables,
+            theories=theories,
+            bibliography=bibliography,
             aprobado_por_tet=aprobado_por_tet,
             aprobado_en=aprobado_en,
         )

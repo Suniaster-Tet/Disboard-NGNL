@@ -37,22 +37,26 @@ class RunRequest(BaseModel):
 class EdgeCreateRequest(BaseModel):
     title: str | None = None
     seed: str = ""
+    theories: list[str] = []
 
 
 class DirectRequest(BaseModel):
     text: str
     edge_id: str | None = None
     title: str | None = None
+    theories: list[str] = []
 
 
 class RequestText(BaseModel):
     text: str
+    theories: list[str] = []
 
 
 class PlanApprovalRequest(BaseModel):
     objetivos: list[str] | None = None
     metas: list[str] | None = None
     entregables: list[dict[str, Any]] | None = None
+    theories: list[str] | None = None
 
 
 class BibliographySearchRequest(BaseModel):
@@ -67,6 +71,12 @@ class BibliographyDoiRequest(BaseModel):
 class DecisionRequest(BaseModel):
     verdict: str
     observations: str = ""
+
+
+class TemplateDocumentRequest(BaseModel):
+    template: str
+    title: str
+    instructions: str
 
 
 class VerdictRequest(BaseModel):
@@ -238,6 +248,8 @@ def api_direct_request(request_data: DirectRequest) -> Dict[str, Any]:
             "edge_created", {"source": "direct_request"}, agente="Tet"
         )
         workflow = EdgeWorkflow(edge)
+    if request_data.theories:
+        workflow.set_theories(request_data.theories)
     workflow.add_request(text)
     return {"status": "ok", "edge_id": workflow.edge.id, "workflow": workflow.generate_plan()}
 
@@ -245,7 +257,13 @@ def api_direct_request(request_data: DirectRequest) -> Dict[str, Any]:
 @app.post("/api/edges/{edge_id}/requests")
 def api_add_request(edge_id: str, request_data: RequestText) -> Dict[str, Any]:
     workflow = _workflow(edge_id)
-    return _workflow_result(lambda: (workflow.add_request(request_data.text), workflow.generate_plan())[1])
+    def update_request():
+        if request_data.theories:
+            workflow.set_theories(request_data.theories)
+        workflow.add_request(request_data.text)
+        return workflow.generate_plan()
+
+    return _workflow_result(update_request)
 
 
 @app.post("/api/edges/{edge_id}/plan")
@@ -303,6 +321,21 @@ def api_decide_bibliography(edge_id: str, doi: str, decision: DecisionRequest) -
 def api_execute_deliverable(edge_id: str, deliverable_id: str) -> Dict[str, Any]:
     workflow = _workflow(edge_id)
     return _workflow_result(lambda: workflow.execute_deliverable(deliverable_id))
+
+
+@app.post("/api/edges/{edge_id}/deliverables/{deliverable_id}/documents")
+def api_generate_document(
+    edge_id: str,
+    deliverable_id: str,
+    request_data: TemplateDocumentRequest,
+) -> Dict[str, Any]:
+    workflow = _workflow(edge_id)
+    return _workflow_result(lambda: workflow.generate_document(
+        deliverable_id,
+        request_data.template,
+        request_data.title,
+        request_data.instructions,
+    ))
 
 
 @app.post("/api/edges/{edge_id}/deliverables/{deliverable_id}/decision")
@@ -398,6 +431,8 @@ def dashboard_create_edge(data: EdgeCreateRequest) -> JSONResponse:
         "edge_created", {"has_seed": bool(data.seed.strip())}, agente="Tet"
     )
     workflow = EdgeWorkflow(edge)
+    if data.theories:
+        workflow.set_theories(data.theories)
     if data.seed.strip():
         workflow.add_request(data.seed)
         workflow.generate_plan()

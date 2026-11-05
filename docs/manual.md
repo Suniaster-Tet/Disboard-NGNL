@@ -175,6 +175,8 @@ Abre `http://127.0.0.1:8000` en el navegador. En la portada puedes enviar una so
 
 Las aprobaciones requieren configurar `TET_SIGNING_KEY` en `.env` o en los secretos del Codespace. Las búsquedas de Jibril necesitan conexión a Crossref.
 
+Para generar borradores con modelos gratuitos, deja `DISBOARD_USE_LLM=true` y configura al menos `GROQ_API_KEY` o `GOOGLE_AI_STUDIO_API_KEY`. Suniaster mantiene `allow_paid: false` en `suniaster/config.yaml`; si no hay credencial, cuota o respuesta válida, usa un scaffold local explícitamente pendiente de revisión.
+
 ### 5.3 Jupyter / JupyterLab (local o Codespaces)
 
 ```bash

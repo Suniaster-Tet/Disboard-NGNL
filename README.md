@@ -151,15 +151,16 @@ flowchart TD
 
 ---
 
-## 3. Requisitos de Arquitectura
+## 3. Garantías y límites de la versión actual
 
-| Propiedad | Implementación esperada |
+| Propiedad | Implementación comprobable |
 |---|---|
-| **Auditoría** | Logs locales por edge (`edges/<id>/log.jsonl`); registro de cada entrega, agente responsable, timestamp y veredicto HITL. |
-| **Reproducibilidad** | Código base de Sora versionado; semillas de cálculo registradas por Shiro; DOI verificados por Jibril con fuente (Crossref/OpenAlex/ORCID). |
-| **Compatibilidad multiplataforma** | Elkia operable desde consola (Linux/macOS/Windows) y desde navegador vía servidor web local. |
-| **Modularidad** | Cada agente/subagente con skill propia en `skills/`; Suniaster permite intercambiar proveedor de IA por agente sin reescribir el flujo; plantillas de reportería intercambiables en `templates/`. |
-| **Protección de datos** | Fiel Nirvalen filtra datos reales antes de prompts externos (`privacy/filters.py`); cálculos sensibles se ejecutan localmente (Shiro/Izuna) cuando sea posible; STT/TTS opcionales con alternativas locales.. |
+| **Auditoría** | `log.jsonl` por edge registra solicitudes, referencias, entregas, veredictos y rollbacks. El flujo normal agrega eventos; el administrador del host puede modificarlos. |
+| **Integridad** | Las aprobaciones HITL usan HMAC-SHA256; el cierre recalcula SHA-256 de los artefactos activos. No es cifrado en reposo ni almacenamiento inmutable. |
+| **Reproducibilidad** | Se conserva `seed.md`, plan, contrato, workflow y hashes. Versiones efectivas de modelos no se registran porque el workflow web actual es determinista. |
+| **Compatibilidad** | CLI Python y dashboard web; Codespaces y Docker Compose tienen configuración, pero Docker requiere validar el entorno anfitrión. |
+| **Modularidad** | CLI y dashboard usan `EdgeWorkflow`; agentes, conectores, plugins, políticas y plantillas viven en módulos separados. El router de Suniaster aún no está inyectado al workflow web. |
+| **Privacidad** | El filtro es explícito, no automático para toda integración. La búsqueda de Crossref filtra la consulta; los datos locales no se cifran en reposo. |
 
 ---
 
@@ -181,10 +182,11 @@ El servidor web también expone un dashboard en la raíz (`/`) que actúa como c
 - **Plan HITL**: revisa, modifica y firma objetivos, metas y asignación de agentes.
 - **Bibliografía**: búsqueda en Crossref o verificación DOI en Crossref/OpenAlex/ORCID; Tet autoriza cada referencia antes de usarla.
 - **Entregables**: ejecutar Jibril/Shiro/Chlammy o adjuntar un archivo; Tet aprueba, solicita cambios o rechaza con rollback.
+- **Plantillas base**: generar preprint, informe, slides o borrador de correo con el enfoque y las teorías de Tet, citando solo DOIs aprobados; los correos nunca se envían automáticamente.
 - **Trazabilidad**: avance, prioridad, contrato, aprobaciones firmadas, SHA-256 y bitácora por edge.
 - **Agenda**: planes, referencias y entregables que esperan decisión de Tet.
 
-**Límites actuales:** el scaffold de Sora/Shiro es determinista, la auditoría de Chlammy es básica y el dashboard no ejecuta código de Shiro. La firma HMAC protege veredictos de Tet; no cifra los datos en disco ni vuelve los logs inmutables frente al administrador del equipo.
+**Modelos y evidencia:** con `DISBOARD_USE_LLM=true` y una credencial gratuita disponible, Sora, Shiro y el redactor de plantillas usan el proveedor asignado por Suniaster. Suniaster respeta `allow_paid: false` y prueba el fallback gratuito ante errores de cuota/servicio. Los prompts incluyen solo referencias aprobadas por Tet y los marcos teóricos definidos en el edge; el texto pasa por el filtro de privacidad. Si no hay modelo o la salida no valida, se genera un scaffold explícitamente incompleto. La auditoría de Chlammy sigue siendo básica y el dashboard no ejecuta el código generado. HMAC protege veredictos de Tet; no cifra los datos en disco ni vuelve los logs inmutables frente al administrador del equipo.
 
 ### Endpoints principales del dashboard
 
@@ -391,6 +393,7 @@ Disboard-NGNL/
 │   ├── preprint.tex.j2
 │   ├── report.md.j2
 │   └── slides.md.j2
+│   └── email.md.j2
 │
 ├── disboard_ext/
 │   ├── __init__.py

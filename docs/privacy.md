@@ -7,16 +7,21 @@
 
 1. **Local-first.** El equipo núcleo ejecuta el backend, los agentes, las bases
    de datos y los artefactos. Los clientes solo consumen interfaz o terminal.
-2. **Filtrado explícito.** `privacy/filters.py` ofrece filtros reutilizables;
-   no se aplican automáticamente a todos los consumidores. La búsqueda libre
-   del dashboard filtra el texto antes de enviarlo a Crossref.
-3. **Cálculos locales.** El workflow web actual genera scaffolds y no ejecuta
-   cálculos de Shiro ni envía prompts a un proveedor LLM.
-4. **DOI públicos.** Jibril envía consultas o DOIs a Crossref/OpenAlex/ORCID;
-   no envía PDFs ni contratos en las rutas implementadas.
-5. **Wolfram condicionado.** El cliente de Wolfram existe, pero no está
-   conectado al workflow del dashboard.
-6. **Modo estricto.** `PRIVACY_STRICT=true` (por defecto) aplica patrones extra
+2. **Filtrado de prompts.** `privacy/filters.py` ofrece filtros reutilizables;
+   la inferencia de Sora, Shiro y plantillas y la búsqueda libre de Jibril los
+   aplican antes de las llamadas externas. Los patrones conocidos no equivalen
+   a un DLP completo; Tet debe revisar la solicitud antes de habilitar modelos.
+3. **Modelos gratuitos.** Con `DISBOARD_USE_LLM=true`, Suniaster usa proveedores
+   configurados; `allow_paid: false` evita proveedores de pago por defecto.
+   Solicitudes y resultados se guardan localmente, pero el prompt filtrado sale
+   al proveedor seleccionado.
+4. **Ejecución de código.** Shiro redacta código y tests; el dashboard no los
+   ejecuta. Tet debe revisar y ejecutar los artefactos en un entorno controlado.
+5. **DOI públicos.** Jibril envía consultas bibliográficas filtradas o DOIs a
+   Crossref/OpenAlex/ORCID; no envía PDFs ni contratos en las rutas actuales.
+6. **Wolfram condicionado.** El cliente existe, pero no está conectado al
+   workflow del dashboard actual.
+7. **Modo estricto.** `PRIVACY_STRICT=true` (por defecto) aplica patrones extra
    (DNI, IBAN, URL con token). En `false`, solo patrones base (email, teléfono,
    tarjeta).
 
@@ -24,7 +29,8 @@
 
 | Servicio | Qué se envía | Qué NO se envía |
 |---|---|---|
-| Groq / Google AI Studio / OpenAI / Anthropic / DeepSeek | No invocados por el workflow actual del dashboard | No aplica a ese flujo |
+| Groq / Google AI Studio | Prompts filtrados de Sora/Shiro/plantillas si `DISBOARD_USE_LLM=true` | Clave API, archivos del edge y contenido que no esté en el prompt |
+| OpenAI / Anthropic / DeepSeek | No usados si `allow_paid: false`; requieren autorización explícita en configuración | Datos del edge fuera del prompt |
 | Crossref | Consulta bibliográfica filtrada y DOIs | PDF, contrato, contenido completo del edge |
 | OpenAlex / ORCID | DOI verificado | PDF, contrato, contenido completo del edge |
 | Wolfram | No invocado por el workflow actual del dashboard | No aplica a ese flujo |

@@ -24,5 +24,12 @@
 
 {% endfor %}
 
+{% if references %}
+## Referencias aprobadas por Tet
+{% for reference in references %}
+- {{ reference.authors | join(', ') }} ({{ reference.year }}). {{ reference.title }}. {{ reference.journal }}. https://doi.org/{{ reference.doi }}
+{% endfor %}
+{% endif %}
+
 ---
-*Generado deterministamente por Disboard-NGNL (Stephanie Dola Stylist Engine)*
+*Borrador generado por Disboard-NGNL; requiere revisión y aprobación de Tet.*

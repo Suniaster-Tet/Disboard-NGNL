@@ -7,6 +7,11 @@ from pathlib import Path
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def disable_external_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DISBOARD_USE_LLM", "false")
+
+
 @pytest.fixture
 def tmp_edge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict:
     """Crea un edge temporal con contrato, log y artefactos."""
