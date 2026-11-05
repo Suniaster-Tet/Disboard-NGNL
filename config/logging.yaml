@@ -1,0 +1,53 @@
+# config/logging.yaml
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  json_structured:
+    format: '{"timestamp": "%(asctime)s", "level": "%(levelname)s", "agent": "%(name)s", "message": "%(message)s"}'
+    datefmt: '%Y-%m-%dT%H:%M:%SZ'
+  console_human:
+    format: 'Aschente [%(levelname)s] [%(name)s]: %(message)s'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: console_human
+    stream: ext://sys.stdout
+
+  file_jsonl:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: json_structured
+    filename: logs/graph_trace.jsonl
+    encoding: utf-8
+    delay: true
+
+  edges_log:
+    class: logging.FileHandler
+    level: DEBUG
+    formatter: json_structured
+    filename: logs/edges.log
+    encoding: utf-8
+    delay: true
+
+loggers:
+  disboard:
+    level: DEBUG
+    handlers: [console, file_jsonl]
+    propagate: false
+
+  disboard.edges:
+    level: DEBUG
+    handlers: [console, edges_log]
+    propagate: false
+
+  disboard.privacy:
+    level: INFO
+    handlers: [console]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console]

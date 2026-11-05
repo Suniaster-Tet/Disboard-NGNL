@@ -1,0 +1,47 @@
+# config/apis.yaml
+# Parámetros de APIs externas (timeouts, retries, keys).
+
+apis:
+  crossref:
+    service: "Crossref Work Index"
+    base_url: "https://api.crossref.org/works/"
+    timeout_seconds: 15
+    max_retries: 3
+    requires_key: false
+    rate_limit_rps_polite: 10   # polite pool con mailto
+    rate_limit_rps_public: 5
+
+  openalex:
+    service: "OpenAlex Scientific Index"
+    base_url: "https://api.openalex.org/works/https://doi.org/"
+    timeout_seconds: 15
+    max_retries: 3
+    requires_key: false
+    rate_limit_rps: 10
+    rate_limit_rps_with_key: 30
+
+  orcid:
+    service: "ORCID Registry v3.0"
+    base_url: "https://pub.orcid.org/v3.0/"
+    timeout_seconds: 10
+    max_retries: 3
+    requires_key: false
+    rate_limit_rps: 8
+    rate_burst: 40
+
+  wolfram_agentone:
+    service: "Wolfram AgentOne API"
+    base_url: "https://api.wolframalpha.com/v2/"
+    timeout_seconds: 30
+    max_retries: 2
+    requires_key: true
+    env_var_key: "WOLFRAM_API_KEY"
+
+  ollama_local:
+    service: "Ollama Local Engine"
+    base_url: "http://localhost:11434"
+    timeout_seconds: 60
+    max_retries: 2
+    requires_key: false
+    models_default:
+      - "qwen3.5:9b"
