@@ -1,9 +1,23 @@
-name: Cross-platform and browser tests
+name: CI — tests, browser, diagrams and pre-commit
 
 on:
   push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - "**.j2"
+      - "templates/**"
   pull_request:
+    branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   unit-tests:
@@ -11,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        python-version: ["3.12"]
+        python-version: ["3.11", "3.12"]
     runs-on: ${{ matrix.os }}
     env:
       PYTHONUTF8: "1"
@@ -21,26 +35,47 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-      - name: Install focused test dependencies
-        run: python -m pip install fastapi httpx python-multipart pandas openpyxl pypdf reportlab requests
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
       - name: Run unit tests
-        run: python -m unittest discover -s tests -p "test_*.py" -v
-      - name: Compile application modules
-        run: python -m py_compile disboard_console.py disboard_graph.py disboard_web.py disboard_pdf_to_markdown.py disboard_skills.py disboard_registry.py elkia_architect.py disboard_artifacts.py disboard_plugins.py disboard_relay.py kuhaku_pipeline.py edge-bases_de_datos/src/disboard_data.py
+        run: python -m pytest -m "not slow and not integration and not antigravity and not speech" -v
+      - name: Compile package
+        run: python -m compileall -q core elkia suniaster agents console web privacy tools disboard_ext scripts
 
-  browser-smoke:
+  pre-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install browser test runner
-        run: python -m pip install -r requirements-browser.txt
-      - name: Install Chromium, Firefox, and WebKit
-        run: python -m playwright install --with-deps chromium firefox webkit
-      - name: Smoke-test the local web UI across browser engines
-        run: python tests/browser_smoke.py
+          cache: pip
+      - name: Install pre-commit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pre-commit
+      - name: Run pre-commit hooks
+        run: pre-commit run --all-files --show-diff-on-failure
+
+  browser-smoke:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Install Playwright browsers
+        run: python -m playwright install --with-deps chromium webkit
+      - name: Cross-engine smoke test
+        run: python -m pytest tests/browser_smoke.py -v
 
   mermaid-render:
     runs-on: ubuntu-latest
