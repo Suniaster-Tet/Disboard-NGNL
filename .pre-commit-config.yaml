@@ -1,0 +1,67 @@
+# =============================================================================
+# Disboard-NGNL — pre-commit hooks
+# Instalación: pre-commit install
+# Ejecución manual: pre-commit run --all-files
+# =============================================================================
+repos:
+  # --- Limpieza general ---
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]
+      - id: check-merge-conflict
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # --- Python: lint + formato ---
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  # --- Markdown ---
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.17
+    hooks:
+      - id: mdformat
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-frontmatter
+          - mdformat-tables
+        exclude: ^(docs/adr/|docs/manual\.md)
+
+  # --- Verificación de bloques Mermaid ---
+  - repo: local
+    hooks:
+      - id: mermaid-syntax
+        name: Verificar que los bloques Mermaid abran y cierren correctamente
+        entry: python scripts/_check_mermaid.py
+        language: python
+        additional_dependencies: []
+        pass_filenames: false
+        files: '\.md$'
+
+  # --- Seguridad: evitar secretos ---
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.19.2
+    hooks:
+      - id: gitleaks
+
+  # --- Convención de nombres en inglés ---
+  - repo: local
+    hooks:
+      - id: filenames-english
+        name: Nombres de archivo y carpeta en inglés
+        entry: python scripts/_check_filenames.py
+        language: python
+        pass_filenames: true
+        types: [file]
