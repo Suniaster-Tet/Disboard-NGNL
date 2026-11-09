@@ -28,9 +28,9 @@ def create_model(provider: str, model: str, **kwargs: Any):
         return ChatGroq(model=model, temperature=0, **kwargs)
 
     if provider == "google_genai":
-        _req_env("GOOGLE_AI_STUDIO_API_KEY")
+        api_key = _req_env("GOOGLE_AI_STUDIO_API_KEY")
         from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(model=model, temperature=0, **kwargs)
+        return ChatGoogleGenerativeAI(model=model, temperature=0, api_key=api_key, **kwargs)
 
     if provider == "ollama":
         from langchain_ollama import ChatOllama
@@ -55,8 +55,10 @@ def create_model(provider: str, model: str, **kwargs: Any):
     raise ValueError(f"Proveedor no soportado: {provider}")
 
 
-def _req_env(nombre: str) -> None:
-    if not os.getenv(nombre):
+def _req_env(nombre: str) -> str:
+    value = os.getenv(nombre)
+    if not value:
         raise ProviderUnavailable(
             f"Falta la variable de entorno {nombre}. Configúrala en .env."
         )
+    return value
