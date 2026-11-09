@@ -91,12 +91,17 @@ class PluginRegistry:
             if not entrada.get("enabled", True):
                 continue
             modulo = entrada.get("module", "")
-            if not modulo.startswith("disboard_ext"):
+            if not isinstance(modulo, str) or not (
+                modulo == "disboard_ext" or modulo.startswith("disboard_ext.")
+            ):
                 raise ValueError(
                     "Solo se permiten módulos del paquete 'disboard_ext'."
                 )
             mod = importlib.import_module(modulo)
-            factory = getattr(mod, entrada.get("factory", "create_plugin"), None)
+            factory_name = entrada.get("factory", "create_plugin")
+            if not isinstance(factory_name, str) or not factory_name:
+                raise ValueError(f"El módulo {modulo} no expone una factory válida.")
+            factory = getattr(mod, factory_name, None)
             if factory is None:
                 raise ValueError(f"El módulo {modulo} no expone una factory válida.")
             plugin = factory()
