@@ -3,8 +3,8 @@
 
 Verifica:
 - Python y dependencias críticas.
-- Variables de entorno mínimas.
-- Conectividad con proveedores free tier (Groq, Google AI Studio).
+- Clave de firma de aprobaciones y variables opcionales.
+- Disponibilidad de adaptadores configurados (no hace llamadas de inferencia).
 - Estado de Suniaster (modelos por agente).
 - Estado de Elkia (registro de edges).
 - Configuración presente (`suniaster/config.yaml`, `config/apis.yaml`).
@@ -59,23 +59,26 @@ def _check_env() -> list[tuple[bool, str]]:
         "TET_SIGNING_KEY": "Firma HITL de Tet",
     }
     for var, desc in required.items():
-        if os.getenv(var):
+        value = os.getenv(var, "")
+        if len(value.encode("utf-8")) >= 32:
             checks.append((True, f"{var} configurada ({desc})"))
+        elif value:
+            checks.append((False, f"{var} es débil; requiere al menos 32 bytes aleatorios."))
         else:
             checks.append((False, f"{var} FALTA ({desc})"))
 
     optional = {
-        "GROQ_API_KEY": "Groq (free tier)",
-        "GOOGLE_AI_STUDIO_API_KEY": "Google AI Studio (free tier)",
-        "WOLFRAM_API_KEY": "Wolfram (opcional; Shiro)",
-        "CROSSREF_MAILTO": "Crossref polite pool (Jibril)",
-        "OPENALEX_API_KEY": "OpenAlex (Jibril)",
+        "GROQ_API_KEY": "Groq, proveedor de modelos",
+        "GOOGLE_AI_STUDIO_API_KEY": "Google AI Studio, proveedor de modelos",
+        "WOLFRAM_API_KEY": "Wolfram para Shiro",
+        "CROSSREF_MAILTO": "Crossref polite pool para Jibril",
+        "OPENALEX_API_KEY": "OpenAlex para Jibril",
     }
     for var, desc in optional.items():
         if os.getenv(var):
             checks.append((True, f"{var} configurada ({desc})"))
         else:
-            checks.append((False, f"{var} no configurada ({desc})"))
+            checks.append((True, f"{var} no configurada (opcional; {desc})"))
     return checks
 
 
@@ -90,7 +93,7 @@ def _check_tools() -> list[tuple[bool, str]]:
         if shutil.which(binary):
             checks.append((True, f"{name} disponible"))
         else:
-            checks.append((False, f"{name} no disponible"))
+            checks.append((True, f"{name} no disponible (opcional)"))
     return checks
 
 
@@ -110,18 +113,35 @@ def _check_config() -> list[tuple[bool, str]]:
 
 def _check_suniaster() -> list[tuple[bool, str]]:
     checks: list[tuple[bool, str]] = []
+    llm_setting = os.getenv("DISBOARD_USE_LLM", "auto").strip().lower()
+    llm_enabled = llm_setting in {"1", "true", "yes", "on"} or (
+        llm_setting == "auto"
+        and any(
+            os.getenv(name)
+            for name in (
+                "GROQ_API_KEY",
+                "GOOGLE_AI_STUDIO_API_KEY",
+                "OLLAMA_BASE_URL",
+            )
+        )
+    )
     try:
         from suniaster.updater import SuniasterUpdater
         result = SuniasterUpdater().check_and_update()
         if result["status"] == "ok":
             checks.append((True, f"Suniaster OK ({len(result['details'])} agentes)"))
         else:
-            checks.append((False, f"Suniaster degradado ({result['agents_with_error']} errores)"))
+            checks.append((
+                not llm_enabled,
+                f"Suniaster degradado ({result['agents_with_error']} adaptadores no disponibles)"
+                + ("; LLM desactivado, se usarán fallbacks locales." if not llm_enabled else ""),
+            ))
             for agent, det in result["details"].items():
                 if not det.get("ok"):
-                    checks.append((False, f"  - {agent}: {det.get('error', 'error')}"))
+                    error_type = det.get("error", "error").split(":", 1)[0]
+                    checks.append((not llm_enabled, f"  - {agent}: {error_type}"))
     except Exception as e:
-        checks.append((False, f"Suniaster no disponible: {e}"))
+        checks.append((not llm_enabled, f"Suniaster no disponible ({type(e).__name__})"))
     return checks
 
 
@@ -163,7 +183,7 @@ def main() -> int:
     if failures:
         print(f"✖ Healthcheck con {failures} problema(s). Revisa los mensajes anteriores.")
         return 1
-    print("✔ Healthcheck OK. Elkia y Suniaster operativos.")
+    print("✔ Healthcheck básico OK. Verifica los servicios opcionales antes de necesitarlos.")
     return 0
 
 
